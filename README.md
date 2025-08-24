@@ -8,6 +8,16 @@
 
 This is a production-ready offline-first Progressive Web App (PWA) for tracking and managing expenses related to trips. It is designed to work seamlessly offline by utilizing IndexedDB for local storage and a service worker for caching static assets. The user interface is built with HTML, CSS (Bootstrap), and vanilla JavaScript.
 
+## Features
+
+*   **Offline-First:** Works seamlessly offline with IndexedDB for data and a service worker for caching assets.
+*   **Trip Management:** Create, view, and categorize trips (Active, Submitted, Reimbursed) with drag-and-drop functionality.
+*   **Dynamic UI:** "No trips" messages dynamically appear/disappear based on category content.
+*   **Expense Tracking:** Add, view, and **edit** expenses for each trip, including description, amount, date, category, and notes.
+*   **Responsive Design:** Built with Bootstrap for a mobile-first, responsive user experience.
+*   **Custom Styling:** Enhanced visual consistency with custom blue theme (`#1663bb`), unified title card sizing, and refined home icon styling.
+*   **Global Padding:** Consistent 16px horizontal padding across the main container for improved aesthetics.
+
 ## Building and Running
 
 This is a static web project and does not require a build process. To run the application, you need to serve the files in the project root directory using a local web server.

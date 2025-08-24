@@ -34,3 +34,11 @@ async function getExpensesByTripId(tripId) {
   const allExpenses = await getAllExpenses();
   return allExpenses.filter(expense => expense.tripId === tripId);
 }
+
+async function updateTripStatus(tripId, newStatus) {
+  const trip = await getTripById(tripId);
+  if (trip) {
+    trip.status = newStatus;
+    return db.put('trips', trip);
+  }
+}

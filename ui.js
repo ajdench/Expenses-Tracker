@@ -10,17 +10,24 @@ async function renderTrips(selectedTripId = null) {
   // App Shell with Bootstrap classes
   app.innerHTML = `
     <div class="container mt-4">
-      <div class="card text-center bg-primary text-white">
-        <div class="card-header">
-          <h1>Trip Expense Tracker</h1>
+      <div class="card text-center btn-custom-blue text-white">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div></div>
+          <h1>Expenses Tracker</h1>
+          <div></div>
         </div>
       </div>
 
       <main id="trip-list-container" class="mt-4">
-        <!-- Trips will be rendered here -->
+        <h2 class="h4">Active</h2>
+        <div id="active-trips-container"></div>
+        <h2 class="h4 mt-4">Submitted</h2>
+        <div id="submitted-trips-container"></div>
+        <h2 class="h4 mt-4">Reimbursed</h2>
+        <div id="reimbursed-trips-container"></div>
       </main>
 
-      <button id="add-trip-fab" type="button" class="btn btn-primary btn-lg rounded-circle position-fixed bottom-0 end-0 m-3" data-bs-toggle="modal" data-bs-target="#add-trip-modal">
+      <button id="add-trip-fab" type="button" class="btn btn-custom-blue btn-lg rounded-circle position-fixed bottom-0 end-0 m-3" data-bs-toggle="modal" data-bs-target="#add-trip-modal">
         +
       </button>
 
@@ -50,35 +57,107 @@ async function renderTrips(selectedTripId = null) {
     </div>
   `;
 
-  const tripListContainer = document.getElementById('trip-list-container');
+  const activeTripsContainer = document.getElementById('active-trips-container');
+  const submittedTripsContainer = document.getElementById('submitted-trips-container');
+  const reimbursedTripsContainer = document.getElementById('reimbursed-trips-container');
+
+  const activeTrips = trips.filter(trip => trip.status === 'active');
+  const submittedTrips = trips.filter(trip => trip.status === 'submitted');
+  const reimbursedTrips = trips.filter(trip => trip.status === 'reimbursed');
+
   if (trips.length === 0) {
-    tripListContainer.innerHTML = '<p class="text-center text-muted mt-5">No trips yet. Add one to get started!</p>';
+    activeTripsContainer.innerHTML = '<p class="text-center text-muted mt-5">No trips yet. Add one to get started</p>';
   } else {
-    trips.forEach(trip => {
-      const tripElement = document.createElement('div');
-      const isSelected = trip.id === selectedTripId;
+    if (activeTrips.length === 0) {
+      activeTripsContainer.innerHTML = '<p class="text-center text-muted">No active trips</p>';
+    } else {
+      activeTrips.forEach(trip => {
+        const tripElement = document.createElement('div');
+        const isSelected = trip.id === selectedTripId;
 
-      tripElement.className = `card mb-3 ${isSelected ? 'text-white bg-primary' : ''}`;
-      tripElement.innerHTML = `
-        <div class="card-body">
-          <h5 class="card-title">${trip.name}</h5>
-          <p class="card-text"><small class="${isSelected ? 'text-white-50' : 'text-muted'}">Status: ${trip.status}</small></p>
-          ${isSelected ? '<button class="btn btn-light view-expenses-btn">View Expenses</button>' : ''}
-        </div>
-      `;
+        tripElement.className = `card mb-3 ${isSelected ? 'text-white btn-custom-blue' : ''}`;
+        tripElement.innerHTML = `
+          <div class="card-body">
+            <h5 class="card-title">${trip.name}</h5>
+          </div>
+        `;
 
-      if (isSelected) {
-        tripElement.querySelector('.view-expenses-btn').addEventListener('click', (e) => {
-          e.stopPropagation();
-          renderTripDetail(trip.id);
-        });
-      } else {
+        tripElement.dataset.tripId = trip.id; // Add tripId to dataset
+
         tripElement.addEventListener('click', () => selectTrip(trip.id));
-      }
-      
-      tripListContainer.appendChild(tripElement);
-    });
+        tripElement.addEventListener('dblclick', () => renderTripDetail(trip.id));
+        
+        activeTripsContainer.appendChild(tripElement);
+      });
+    }
+
+    if (submittedTrips.length === 0) {
+      submittedTripsContainer.innerHTML = '<p class="text-center text-muted">No submitted trips</p>';
+    } else {
+      submittedTrips.forEach(trip => {
+        const tripElement = document.createElement('div');
+        const isSelected = trip.id === selectedTripId;
+
+        tripElement.className = `card mb-3 ${isSelected ? 'text-white btn-custom-blue' : ''}`;
+        tripElement.innerHTML = `
+          <div class="card-body">
+            <h5 class="card-title">${trip.name}</h5>
+          </div>
+        `;
+        tripElement.dataset.tripId = trip.id; // Add tripId to dataset
+
+        tripElement.addEventListener('click', () => selectTrip(trip.id));
+        tripElement.addEventListener('dblclick', () => renderTripDetail(trip.id));
+        
+        submittedTripsContainer.appendChild(tripElement);
+      });
+    }
+
+    if (reimbursedTrips.length === 0) {
+      reimbursedTripsContainer.innerHTML = '<p class="text-center text-muted">No reimbursed trips</p>';
+    } else {
+      reimbursedTrips.forEach(trip => {
+        const tripElement = document.createElement('div');
+        const isSelected = trip.id === selectedTripId;
+
+        tripElement.className = `card mb-3 ${isSelected ? 'text-white btn-custom-blue' : ''}`;
+        tripElement.innerHTML = `
+          <div class="card-body">
+            <h5 class="card-title">${trip.name}</h5>
+          </div>
+        `;
+        tripElement.dataset.tripId = trip.id; // Add tripId to dataset
+
+        tripElement.addEventListener('click', () => selectTrip(trip.id));
+        tripElement.addEventListener('dblclick', () => renderTripDetail(trip.id));
+        
+        reimbursedTripsContainer.appendChild(tripElement);
+      });
+    }
   }
+
+  const containers = [activeTripsContainer, submittedTripsContainer, reimbursedTripsContainer];
+  containers.forEach(container => {
+    new Sortable(container, {
+      group: 'shared',
+      animation: 150,
+      ghostClass: 'ghost-card',
+      onEnd: async (evt) => {
+        const tripId = evt.item.dataset.tripId;
+        let newStatus = evt.to.id.replace('-trips-container', '');
+        // The containers are active, submitted, reimbursed. So the new status should be active, submitted, or reimbursed.
+        if (newStatus === 'active') {
+          newStatus = 'active';
+        } else if (newStatus === 'submitted') {
+          newStatus = 'submitted';
+        } else if (newStatus === 'reimbursed') {
+          newStatus = 'reimbursed';
+        }
+        await updateTripStatus(tripId, newStatus);
+        await renderTrips(); // Re-render to update 'No trips' messages
+      }
+    });
+  });
 
   // Event Listeners for Trip List page
   const form = document.getElementById('add-trip-form');
@@ -113,10 +192,10 @@ async function renderTripDetail(tripId) {
 
   app.innerHTML = `
     <div class="container mt-4">
-      <div class="card bg-primary text-white">
+      <div class="card bg-success text-white">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <button id="back-to-trips" class="btn btn-light">🏠</button>
-          <h1 class="mb-0">${trip.name}</h1>
+          <button id="back-to-trips" class="btn text-white btn-no-style"><i class="bi bi-house-door-fill home-icon"></i></button>
+          <h1>${trip.name}</h1>
           <div></div>
         </div>
       </div>
@@ -139,6 +218,7 @@ async function renderTripDetail(tripId) {
             </div>
             <div class="modal-body">
               <form id="add-expense-form">
+                <input type="hidden" id="expense-id">
                 <div class="mb-3">
                   <label for="expense-description" class="form-label">Description</label>
                   <input type="text" class="form-control" id="expense-description" required>
@@ -169,7 +249,7 @@ async function renderTripDetail(tripId) {
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" form="add-expense-form" class="btn btn-success">Save Expense</button>
+              <button type="submit" form="add-expense-form" class="btn btn-success" id="save-expense-btn">Save Expense</button>
             </div>
           </div>
         </div>
@@ -187,13 +267,37 @@ async function renderTripDetail(tripId) {
       expenseCard.innerHTML = `
         <div class="card-body d-flex justify-content-between align-items-center">
           <div>
-            <h5 class="card-title">${expense.description}</h5>
-            <p class="card-text"><small class="text-muted">${expense.category} - ${new Date(expense.date).toLocaleDateString()}</small></p>
+            <h5>${expense.description}</h5>
+            <p><small class="text-muted">${expense.category} - ${new Date(expense.date).toLocaleDateString()}</small></p>
           </div>
-          <p class="card-text fs-5 fw-bold">£${expense.amount.toFixed(2)}</p>
+          <div class="d-flex align-items-center">
+            <p class="fs-5 fw-bold mb-0 me-3">£${expense.amount.toFixed(2)}</p>
+            <button class="btn btn-sm btn-outline-primary edit-expense-btn" data-expense-id="${expense.id}" data-bs-toggle="modal" data-bs-target="#add-expense-modal">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </div>
         </div>
       `;
       expenseListContainer.appendChild(expenseCard);
+    });
+
+    // Add event listeners for edit buttons
+    document.querySelectorAll('.edit-expense-btn').forEach(button => {
+      button.addEventListener('click', async (e) => {
+        const expenseId = e.currentTarget.dataset.expenseId;
+        const expenseToEdit = expenses.find(exp => exp.id === expenseId);
+        if (expenseToEdit) {
+          document.getElementById('expense-id').value = expenseToEdit.id;
+          document.getElementById('expense-description').value = expenseToEdit.description;
+          document.getElementById('expense-amount').value = expenseToEdit.amount;
+          document.getElementById('expense-date').value = expenseToEdit.date;
+          document.getElementById('expense-category').value = expenseToEdit.category;
+          document.getElementById('expense-notes').value = expenseToEdit.notes;
+
+          document.getElementById('addExpenseModalLabel').textContent = 'Edit Expense';
+          document.getElementById('save-expense-btn').textContent = 'Update Expense';
+        }
+      });
     });
   }
 
@@ -203,14 +307,15 @@ async function renderTripDetail(tripId) {
   const form = document.getElementById('add-expense-form');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const expenseId = document.getElementById('expense-id').value;
     const description = document.getElementById('expense-description').value;
     const amount = parseFloat(document.getElementById('expense-amount').value);
     const date = document.getElementById('expense-date').value;
     const category = document.getElementById('expense-category').value;
     const notes = document.getElementById('expense-notes').value;
     
-    const newExpense = {
-      id: Date.now().toString(),
+    const expense = {
+      id: expenseId || Date.now().toString(), // Use existing ID or generate new
       tripId: tripId,
       description: description,
       amount: amount,
@@ -219,12 +324,21 @@ async function renderTripDetail(tripId) {
       notes: notes
     };
 
-    await saveExpense(newExpense);
+    await saveExpense(expense);
     form.reset();
     const modal = bootstrap.Modal.getInstance(document.getElementById('add-expense-modal'));
     modal.hide();
     await renderTripDetail(tripId); // Re-render the detail view
-    showToast('Expense saved successfully!');
+    showToast(expenseId ? 'Expense updated successfully!' : 'Expense saved successfully!');
+  });
+
+  // Reset modal when hidden
+  const addExpenseModal = document.getElementById('add-expense-modal');
+  addExpenseModal.addEventListener('hidden.bs.modal', () => {
+    form.reset();
+    document.getElementById('expense-id').value = ''; // Clear hidden ID
+    document.getElementById('addExpenseModalLabel').textContent = 'Add New Expense';
+    document.getElementById('save-expense-btn').textContent = 'Save Expense';
   });
 }
 

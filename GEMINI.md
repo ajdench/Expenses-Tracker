@@ -51,5 +51,6 @@ Open your web browser and navigate to the local address provided by the server (
 *   [ ] Implement Archive Logic (soft delete) for trips.
 *   [ ] Implement Export/Import backup functionality.
 *   [ ] Refine the drag-and-drop animation to be smoother.
-*   [ ] Fix the home button icon color in the trip detail view.
-*   [ ] Remove unnecessary padding from text within cards.
+*   [x] Fix the home button icon color in the trip detail view.
+*   [x] Implement Expense Editing.
+*   [x] Remove unnecessary padding from text within cards.

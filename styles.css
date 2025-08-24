@@ -1,1 +1,42 @@
+:root {
+  --card-header-h1-margin-bottom: 0;
+  --home-icon-size: 1.5rem;
+  --global-horizontal-padding: 1rem; /* 16px */
+}
+
 /* No custom styles needed with Bootstrap */
+
+.btn-custom-blue {
+    background-color: #1663bb !important;
+    border-color: #1663bb !important;
+    color: white !important;
+}
+
+.ghost-card {
+  opacity: 0.5;
+  background: #ccc;
+}
+
+.card .card-body > * {
+    margin-bottom: 0;
+}
+
+.card-header h1 {
+  margin-bottom: var(--card-header-h1-margin-bottom);
+}
+
+.btn-no-style {
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.home-icon {
+  font-size: var(--home-icon-size);
+  line-height: 1.2;
+}
+
+.container {
+  padding-left: var(--global-horizontal-padding) !important;
+  padding-right: var(--global-horizontal-padding) !important;
+}
