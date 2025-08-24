@@ -21,4 +21,3 @@ jobs:
         # The branch history will be preserved, but the content will be overwritten.
         # This is suitable for single-page applications or static sites.
         force_orphan: true
-        publish_branch: master
