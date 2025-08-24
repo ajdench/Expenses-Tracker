@@ -1,6 +1,6 @@
 # Project Overview
 
-This project is a production-ready offline-first Progressive Web App (PWA) for tracking and managing expenses related to trips. It is designed to work seamlessly offline by utilizing IndexedDB for local storage and a service worker for caching static assets. The user interface is built with HTML, CSS (Tailwind), and vanilla JavaScript.
+This project is a production-ready offline-first Progressive Web App (PWA) for tracking and managing expenses related to trips. It is designed to work seamlessly offline by utilizing IndexedDB for local storage and a service worker for caching static assets. The user interface is built with HTML, CSS (Bootstrap), and vanilla JavaScript.
 
 ## Building and Running
 
@@ -37,7 +37,7 @@ Open your web browser and navigate to the local address provided by the server (
 
 *   **Database:** The application uses IndexedDB for all local data storage. The `db.js` file provides a simple abstraction layer for database operations.
 *   **UI:** The user interface is dynamically rendered using vanilla JavaScript in `ui.js`.
-*   **Styling:** The project is set up to use Tailwind CSS, although the current implementation in `styles.css` may be a placeholder.
+*   **Styling:** The project uses Bootstrap for styling.
 *   **Offline First:** The service worker in `service-worker.js` is configured to cache all static assets, ensuring the application is available offline.
 *   **Modularity:** The code is organized into separate files with distinct responsibilities:
     *   `app.js`: Main application logic and initialization.
@@ -45,3 +45,11 @@ Open your web browser and navigate to the local address provided by the server (
     *   `db.js`: IndexedDB interactions.
     *   `service-worker.js`: Offline caching and PWA functionality.
     *   `register-sw.js`: Service worker registration.
+
+## To-Do
+
+*   [ ] Implement Archive Logic (soft delete) for trips.
+*   [ ] Implement Export/Import backup functionality.
+*   [ ] Refine the drag-and-drop animation to be smoother.
+*   [ ] Fix the home button icon color in the trip detail view.
+*   [ ] Remove unnecessary padding from text within cards.
