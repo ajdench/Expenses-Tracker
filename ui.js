@@ -175,11 +175,18 @@ async function renderTrips(selectedTripId = null) {
     };
     await saveTrip(newTrip);
     form.reset();
-    const modal = bootstrap.Modal.getInstance(document.getElementById('add-trip-modal'));
+    const modalElement = document.getElementById('add-trip-modal');
+    const modal = new bootstrap.Modal(modalElement);
     modal.hide();
     await renderTrips(); // Re-render the list
     showToast('Trip saved successfully!');
   });
+
+  // Initialize Bootstrap modal after it's added to the DOM
+  const addTripModalElement = document.getElementById('add-trip-modal');
+  if (addTripModalElement) {
+    new bootstrap.Modal(addTripModalElement, { backdrop: 'static', keyboard: false });
+  }
 
   document.addEventListener('click', (e) => {
     const tripListContainer = document.getElementById('trip-list-container');

@@ -1,13 +1,18 @@
 const CACHE_NAME = 'expense-tracker-cache-v1';
+
+const repoName = 'Expenses-Tracker'; // Your GitHub repository name
+const isGitHubPages = window.location.pathname.includes(`/${repoName}/`);
+const prefix = isGitHubPages ? `/${repoName}` : '';
+
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './db.js',
-  './ui.js',
-  './manifest.json',
-  './favicon.png',
+  `${prefix}/`,
+  `${prefix}/index.html`,
+  `${prefix}/styles.css`,
+  `${prefix}/app.js`,
+  `${prefix}/db.js`,
+  `${prefix}/ui.js`,
+  `${prefix}/manifest.json`,
+  `${prefix}/favicon.png`,
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
   'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js',
