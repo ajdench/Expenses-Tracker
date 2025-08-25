@@ -43,7 +43,7 @@ async function renderTrips(selectedTripId = null) {
               <form id="add-trip-form">
                 <div class="mb-3">
                   <label for="trip-name" class="form-label">Trip Name</label>
-                  <input type="text" class="form-control" id="trip-name" required>
+                  <input type="text" class="form-control" id="trip-name" name="tripName" required>
                 </div>
               </form>
             </div>
@@ -218,22 +218,22 @@ async function renderTripDetail(tripId) {
             </div>
             <div class="modal-body">
               <form id="add-expense-form">
-                <input type="hidden" id="expense-id">
+                <input type="hidden" id="expense-id" name="expenseId">
                 <div class="mb-3">
                   <label for="expense-description" class="form-label">Description</label>
-                  <input type="text" class="form-control" id="expense-description" required>
+                  <input type="text" class="form-control" id="expense-description" name="description" required>
                 </div>
                 <div class="mb-3">
                   <label for="expense-amount" class="form-label">Amount (£)</label>
-                  <input type="number" class="form-control" id="expense-amount" required step="0.01">
+                  <input type="number" class="form-control" id="expense-amount" name="amount" required step="0.01">
                 </div>
                 <div class="mb-3">
                   <label for="expense-date" class="form-label">Date</label>
-                  <input type="date" class="form-control" id="expense-date" required>
+                  <input type="date" class="form-control" id="expense-date" name="date" required>
                 </div>
                 <div class="mb-3">
                   <label for="expense-category" class="form-label">Category</label>
-                  <select class="form-select" id="expense-category">
+                  <select class="form-select" id="expense-category" name="category">
                     <option>Food</option>
                     <option>Transport</option>
                     <option>Accommodation</option>
@@ -243,7 +243,7 @@ async function renderTripDetail(tripId) {
                 </div>
                 <div class="mb-3">
                   <label for="expense-notes" class="form-label">Notes</label>
-                  <textarea class="form-control" id="expense-notes" rows="3"></textarea>
+                  <textarea class="form-control" id="expense-notes" name="notes" rows="3"></textarea>
                 </div>
               </form>
             </div>
