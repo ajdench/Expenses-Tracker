@@ -4,7 +4,7 @@ This project is a production-ready offline-first Progressive Web App (PWA) for t
 
 ## Building and Running
 
-This is a static web project and does not require a build process. To run the application, you need to serve the files in the project root directory using a local web server.
+This project now includes a simple build script (`build.sh`) to manage environment-specific configurations (like the base URL for GitHub Pages). Use `npm run build:local` for local development and `npm run build:deploy` for preparing the application for GitHub Pages deployment.
 
 **1. Serve the project directory:**
 

@@ -20,11 +20,22 @@ This is a production-ready offline-first Progressive Web App (PWA) for tracking 
 
 ## Building and Running
 
-This is a static web project and does not require a build process. To run the application, you need to serve the files in the project root directory using a local web server.
+This project now includes a simple build script to manage environment-specific configurations (like the base URL for GitHub Pages).
 
-**1. Serve the project directory:**
+**1. Prepare for local development or deployment:**
 
-You can use any simple web server. Here are two common options:
+*   **For local development:**
+    ```bash
+    npm run build:local
+    ```
+*   **For GitHub Pages deployment:**
+    ```bash
+    npm run build:deploy
+    ```
+
+**2. Serve the project directory (for local development):**
+
+After running `npm run build:local`, you can serve the files using a local web server:
 
 *   **Using Node.js `serve` package:**
     ```bash
@@ -36,11 +47,11 @@ You can use any simple web server. Here are two common options:
     python3 -m http.server
     ```
 
-**2. Access the application:**
+**3. Access the application:**
 
 Open your web browser and navigate to the local address provided by the server (e.g., `http://localhost:3000` or `http://localhost:8000`).
 
-**3. Verify PWA functionality:**
+**4. Verify PWA functionality:**
 
 *   Open your browser's developer tools.
 *   Go to the "Application" tab.

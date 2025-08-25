@@ -1,0 +1,19 @@
+{
+  "name": "expense-tracker-pwa",
+  "version": "1.0.0",
+  "description": "A production-ready offline-first Progressive Web App (PWA) for tracking and managing expenses related to trips.",
+  "main": "app.js",
+  "scripts": {
+    "start": "npx serve",
+    "build:local": "./build.sh local",
+    "build:deploy": "./build.sh deploy"
+  },
+  "keywords": [
+    "pwa",
+    "expense-tracker",
+    "offline-first",
+    "indexeddb"
+  ],
+  "author": "",
+  "license": "MIT"
+}
