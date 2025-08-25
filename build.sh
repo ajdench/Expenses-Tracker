@@ -10,12 +10,16 @@ if [ "$ENV" == "deploy" ]; then
   sed -i '' 's|<meta name="viewport" content="width=device-width, initial-scale=1.0" />|<meta name="viewport" content="width=device-width, initial-scale=1.0" />\n  <base href="/Expenses-Tracker/">|g' "$INDEX_FILE"
   # Adjust favicon path for base tag
   sed -i '' 's|<link rel="icon" type="image/png" href="/favicon.png">|<link rel="icon" type="image/png" href="favicon.png">|g' "$INDEX_FILE"
+  # Adjust service worker registration path for base tag
+  sed -i '' 's|navigator.serviceWorker.register(\'/service-worker.js\')|navigator.serviceWorker.register(\'service-worker.js\')|g' "register-sw.js"
 elif [ "$ENV" == "local" ]; then
   echo "Preparing for local development..."
   # Remove base tag
   sed -i '' '/<base href="\/Expenses-Tracker\/">/d' "$INDEX_FILE"
   # Revert favicon path
   sed -i '' 's|<link rel="icon" type="image/png" href="favicon.png">|<link rel="icon" type="image/png" href="/favicon.png">|g' "$INDEX_FILE"
+  # Revert service worker registration path
+  sed -i '' 's|navigator.serviceWorker.register(\'service-worker.js\')|navigator.serviceWorker.register(\'/service-worker.js\')|g' "register-sw.js"
 else
   echo "Usage: ./build.sh [local|deploy]"
   exit 1

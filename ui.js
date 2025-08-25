@@ -43,7 +43,7 @@ async function renderTrips(selectedTripId = null) {
               <form id="add-trip-form">
                 <div class="mb-3">
                   <label for="trip-name" class="form-label">Trip Name</label>
-                  <input type="text" class="form-control" id="trip-name" name="tripName" required>
+                  <input type="text" class="form-control" id="trip-name" name="tripName">
                 </div>
               </form>
             </div>
@@ -163,7 +163,11 @@ async function renderTrips(selectedTripId = null) {
   const form = document.getElementById('add-trip-form');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const tripName = document.getElementById('trip-name').value;
+    const tripName = document.getElementById('trip-name').value.trim();
+    if (!tripName) {
+      showToast('Trip name cannot be empty!');
+      return;
+    }
     const newTrip = {
       id: Date.now().toString(),
       name: tripName,
