@@ -1,7 +1,7 @@
 const CACHE_NAME = 'expense-tracker-cache-v1';
 
 const repoName = 'Expenses-Tracker'; // Your GitHub repository name
-const isGitHubPages = window.location.pathname.includes(`/${repoName}/`);
+const isGitHubPages = self.location.pathname.includes(`/${repoName}/`);
 const prefix = isGitHubPages ? `/${repoName}` : '';
 
 const ASSETS_TO_CACHE = [
