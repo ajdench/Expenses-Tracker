@@ -5,7 +5,7 @@ async function renderShell() {
   if (!app) return;
   dbg('renderShell');
   app.innerHTML = `
-    <div class="container mt-4">
+    <div class="container">
       <div class="card card-uniform-height text-center btn-custom-blue text-white">
         <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
           <button id="receipt-icon" class="btn text-white btn-no-style header-btn-left" aria-label="Receipts"><i class="bi bi-receipt home-icon"></i></button>
@@ -14,7 +14,7 @@ async function renderShell() {
         </div>
       </div>
 
-      <main id="trip-list-container" class="mt-4">
+      <main id="trip-list-container">
         <section class="mb-4">
           <h5 class="mb-2 text-placeholder">Active</h5>
           <div id="active-trips-container"></div>
@@ -50,14 +50,14 @@ async function renderSettingsPage() {
   }).join('');
 
   app.innerHTML = `
-    <div class="container mt-4">
+    <div class="container">
       <div class="card card-uniform-height bg-secondary text-white">
         <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
           <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi bi-house-door-fill home-icon"></i></button>
           <h4 class="header-title">Settings</h4>
         </div>
       </div>
-      <main id="settings-container" class="mt-4">
+      <main id="settings-container">
         <div class="card app-card">
           <div class="card-body">
             <h6 class="mb-2">Category Colours</h6>
@@ -114,7 +114,10 @@ function buildTripCard(trip, isSelected) {
     </div>
   `;
   card.addEventListener('click', (e) => {
-    if (e.detail >= 2) {
+    // If already selected, navigate to details on tap (mobile-friendly)
+    if (card.classList.contains('btn-custom-blue')) {
+      renderTripDetail(trip.id);
+    } else if (e.detail >= 2) {
       renderTripDetail(trip.id);
     } else {
       selectTrip(trip.id);
@@ -304,7 +307,7 @@ async function renderTripDetail(tripId) {
   const app = document.getElementById('app');
 
   app.innerHTML = `
-    <div class="container mt-4">
+    <div class="container">
       <div class="card card-uniform-height text-white btn-custom-green">
         <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
           <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi bi-house-door-fill home-icon"></i></button>
@@ -312,7 +315,7 @@ async function renderTripDetail(tripId) {
           <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi bi-gear-fill home-icon"></i></button>
         </div>
       </div>
-      <main id="expense-list-container" class="mt-4" data-trip-id="${tripId}"></main>
+      <main id="expense-list-container" data-trip-id="${tripId}"></main>
     </div>
   `;
 

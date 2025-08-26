@@ -155,6 +155,7 @@
 .trip-card.btn-custom-blue:focus {
   border-color: var(--light-grey) !important;
 }
+.trip-card.btn-custom-blue { border-color: var(--light-grey) !important; }
 /* Enforce exact height on trip cards (border-to-border) */
 .trip-card.card-uniform-height { height: var(--uniform-card-height) !important; box-sizing: border-box; }
 
@@ -247,6 +248,10 @@
   line-height: 1;
 }
 
+/* Respect iOS safe areas and neutral background */
+html, body { background-color: #f8f9fa; }
+body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+
 /* Remove all card shadows to improve visual padding consistency */
 .card { box-shadow: none !important; }
 .add-trip-card:hover { box-shadow: none !important; }
@@ -267,6 +272,7 @@
 }
 
 /* Receipts modal */
+.modal-dialog { margin-left: var(--global-horizontal-padding); margin-right: var(--global-horizontal-padding); }
 .receipt-viewer { display: flex; justify-content: center; align-items: center; }
 .receipt-viewer img { max-width: 100%; max-height: 60vh; border-radius: 0.25rem; }
 .receipt-thumbs { display: flex; gap: 0.5rem; overflow-x: auto; padding-top: 0.5rem; }
