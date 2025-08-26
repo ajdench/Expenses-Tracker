@@ -5,6 +5,7 @@ async function renderShell() {
   if (!app) return;
   dbg('renderShell');
   const icons = await loadIconSettings();
+  const scan = await loadScanSettings();
   app.innerHTML = `
     <div class="container">
       <div class="card card-uniform-height text-center btn-custom-blue text-white">
@@ -40,6 +41,7 @@ async function renderSettingsPage() {
   const discovered = Array.from(new Set(allExpenses.map(e => e.category))).filter(Boolean);
   const colorMap = await loadCategoryColorMap();
   const icons = await loadIconSettings();
+  const scan = await loadScanSettings();
   const categories = Array.from(new Set([...Object.keys(DEFAULT_CATEGORY_COLORS), ...discovered]));
 
   const rows = categories.map(cat => {
@@ -153,6 +155,45 @@ async function renderSettingsPage() {
             </div>
           </div>
         </section>
+        <section class="settings-icons-row">
+          <div class="card app-card">
+            <div class="card-body">
+              <h6 class="mb-2">iOS Shortcuts</h6>
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <input type="checkbox" id="scan-enable" ${scan.enable ? 'checked' : ''}>
+                  <label for="scan-enable" class="mb-0">Enable “Scan Documents” integration</label>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <label for="scan-api-base" class="mb-0" style="min-width:120px;">API base URL</label>
+                  <input type="url" class="form-control" id="scan-api-base" placeholder="https://api.your.app" value="${scan.apiBaseUrl || ''}">
+                </div>
+                <div class="d-flex">
+                  <button id="scan-test" class="btn btn-secondary ms-auto">Test Shortcut link</button>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex align-items-center gap-2">
+                  <input type="checkbox" id="scan-files-enable" ${scan.filesEnable ? 'checked' : ''}>
+                  <label for="scan-files-enable" class="mb-0">Enable Files mode (save PDF locally)</label>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <label for="scan-filename-template" class="mb-0" style="min-width:120px;">Filename</label>
+                  <input type="text" class="form-control" id="scan-filename-template" value="${scan.filenameTemplate || ''}" placeholder="{vendor}-{date}-{time}-{currency}-{amount}.pdf">
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <label for="scan-subfolder-template" class="mb-0" style="min-width:120px;">Subfolder</label>
+                  <input type="text" class="form-control" id="scan-subfolder-template" value="${scan.subfolderTemplate || ''}" placeholder="Trip-{trip}">
+                </div>
+                <small class="text-muted">Vars: {vendor} {date} {time} {currency} {amount} {trip}. Date=YYYYMMDD, Time=HHmm</small>
+                <small class="text-muted">Shortcut name: “Scan to Files”. App passes filename and optional subfolder.</small>
+                <div class="mt-2 p-2 border rounded" style="border-color: var(--light-grey) !important;">
+                  <div class="text-muted mb-1">Preview</div>
+                  <code id="scan-template-preview">Shortcuts/ExpenseTracker/${scan.subfolderTemplate ? scan.subfolderTemplate + '/' : ''}${scan.filenameTemplate}</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   `;
@@ -174,6 +215,72 @@ async function renderSettingsPage() {
       alert('Failed to delete content');
     }
   });
+  // Scan settings handlers
+  document.getElementById('scan-enable')?.addEventListener('change', async (e) => {
+    const current = await getScanSettings();
+    current.enable = !!e.target.checked;
+    await saveScanSettings(current);
+  });
+  const apiBaseEl = document.getElementById('scan-api-base');
+  apiBaseEl?.addEventListener('change', async (e) => {
+    const current = await getScanSettings();
+    current.apiBaseUrl = e.target.value.trim();
+    await saveScanSettings(current);
+  });
+  document.getElementById('scan-test')?.addEventListener('click', async () => {
+    const s = await getScanSettings();
+    const ok = !!(s.enable && s.apiBaseUrl);
+    alert(ok ? 'Shortcuts appears enabled and API base is set' : 'Enable Shortcuts and set API base URL');
+  });
+  // Files mode toggle
+  document.getElementById('scan-files-enable')?.addEventListener('change', async (e) => {
+    const current = await getScanSettings();
+    current.filesEnable = !!e.target.checked;
+    await saveScanSettings(current);
+  });
+  document.getElementById('scan-filename-template')?.addEventListener('change', async (e) => {
+    const current = await getScanSettings();
+    current.filenameTemplate = e.target.value;
+    await saveScanSettings(current);
+    updateScanPreview();
+  });
+  document.getElementById('scan-subfolder-template')?.addEventListener('change', async (e) => {
+    const current = await getScanSettings();
+    current.subfolderTemplate = e.target.value;
+    await saveScanSettings(current);
+    updateScanPreview();
+  });
+  // Initialize preview
+  updateScanPreview();
+
+  async function updateScanPreview() {
+    const scan = await getScanSettings();
+    let exp = null;
+    // Prefer currently selected expense if available
+    try {
+      if (window.currentSelectedExpenseId && typeof getExpenseById === 'function') {
+        exp = await getExpenseById(window.currentSelectedExpenseId);
+      }
+    } catch {}
+    // Fallback: most recent expense by date
+    try {
+      if (!exp && typeof getAllExpenses === 'function') {
+        const all = await getAllExpenses();
+        exp = all && all.length ? all.slice().sort((a,b)=> new Date(b.date)-new Date(a.date))[0] : null;
+      }
+    } catch {}
+    // Final fallback: sample data
+    if (!exp) {
+      exp = { description: 'Vendor', date: new Date().toISOString(), currency: '£', amount: 12.34, tripId: null };
+    }
+    let trip = null;
+    try { if (exp?.tripId && typeof getTripById === 'function') trip = await getTripById(exp.tripId); } catch {}
+    if (!trip) trip = { name: 'Trip Name' };
+    const fn = buildScanFilename(exp, scan, trip);
+    const sf = buildScanSubfolder(exp, scan, trip);
+    const code = document.getElementById('scan-template-preview');
+    if (code) code.textContent = `Shortcuts/ExpenseTracker/${sf ? sf + '/' : ''}${fn}`;
+  }
   // Icon radio handlers
   document.querySelectorAll('input[name="icon-receipt"]').forEach(el => {
     el.addEventListener('change', async (e) => {
@@ -500,6 +607,19 @@ async function loadIconSettings() {
   return { ...DEFAULT_ICONS, ...(saved || {}) };
 }
 
+const DEFAULT_SCAN = {
+  enable: false,
+  apiBaseUrl: '',
+  filesEnable: false,
+  filenameTemplate: '{vendor}-{date}-{time}-{currency}-{amount}.pdf',
+  subfolderTemplate: ''
+};
+
+async function loadScanSettings() {
+  const saved = await (typeof getScanSettings === 'function' ? getScanSettings() : Promise.resolve({}));
+  return { ...DEFAULT_SCAN, ...(saved || {}) };
+}
+
 async function colorizeCategorySelect(selectEl) {
   if (!selectEl) return;
   const map = await loadCategoryColorMap();
@@ -588,14 +708,14 @@ function buildExpenseCard(expense, isSelected) {
       if (icon.classList.contains('has-receipt')) {
         await showReceiptModal(expense.id);
       } else {
-        openReceiptPicker(expense.id, icon);
+        openReceiptActionSheet(expense.id, icon);
       }
     });
     icon.addEventListener('keydown', async (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') {
         ev.preventDefault();
         if (icon.classList.contains('has-receipt')) await showReceiptModal(expense.id);
-        else openReceiptPicker(expense.id, icon);
+        else openReceiptActionSheet(expense.id, icon);
       }
     });
   }
@@ -918,6 +1038,191 @@ function openReceiptPicker(expenseId, iconEl) {
     document.body.removeChild(input);
   });
   input.click();
+}
+
+// Action sheet: choose Photos/Camera or iOS Shortcuts Scan
+function openReceiptActionSheet(expenseId, iconEl) {
+  const id = `receipt-action-${expenseId}`;
+  let modalEl = document.getElementById(id);
+  if (!modalEl) {
+    modalEl = document.createElement('div');
+    modalEl.className = 'modal fade';
+    modalEl.id = id;
+    modalEl.tabIndex = -1;
+  modalEl.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Add receipt</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body d-flex flex-column gap-2">
+            <button type="button" class="btn btn-secondary" id="pick-photo">Camera / Photos</button>
+            <button type="button" class="btn btn-secondary" id="scan-shortcuts">Scan with iOS Shortcuts</button>
+            <button type="button" class="btn btn-secondary" id="scan-files">Scan (Shortcuts → Files)</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modalEl);
+  }
+  const modal = getModalInstance(id);
+  modal?.show();
+  const onHide = () => {
+    modalEl.removeEventListener('hidden.bs.modal', onHide);
+    modalEl.querySelector('#pick-photo')?.removeEventListener('click', pickHandler);
+    modalEl.querySelector('#scan-shortcuts')?.removeEventListener('click', scanHandler);
+    modalEl.querySelector('#scan-files')?.removeEventListener('click', scanFilesHandler);
+  };
+  modalEl.addEventListener('hidden.bs.modal', onHide, { once: true });
+
+  const pickHandler = () => { modal?.hide(); openReceiptPicker(expenseId, iconEl); };
+  const scanHandler = async () => { modal?.hide(); await launchShortcutsScan(expenseId); };
+  const scanFilesHandler = async () => { modal?.hide(); await launchShortcutsScanToFiles(expenseId); };
+
+  // Enable/disable Shortcuts based on settings + environment
+  modalEl.querySelector('#pick-photo')?.addEventListener('click', pickHandler);
+  (async () => {
+    const btn = modalEl.querySelector('#scan-shortcuts');
+    if (!btn) return;
+    const scan = await loadScanSettings();
+    const enabled = scan.enable && !!scan.apiBaseUrl && isIosSafari();
+    btn.disabled = !enabled;
+    btn.addEventListener('click', scanHandler);
+  })();
+  (async () => {
+    const btn = modalEl.querySelector('#scan-files');
+    if (!btn) return;
+    const scan = await loadScanSettings();
+    const enabled = !!isIosSafari() && !!scan.filesEnable;
+    btn.disabled = !enabled;
+    btn.addEventListener('click', scanFilesHandler);
+  })();
+}
+
+function isIosSafari() {
+  const ua = navigator.userAgent || navigator.vendor || '';
+  const isiOS = /iPad|iPhone|iPod/.test(ua);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  return isiOS && isSafari;
+}
+
+async function launchShortcutsScan(expenseId) {
+  const scan = await loadScanSettings();
+  if (!scan.enable || !scan.apiBaseUrl) { alert('Enable Shortcuts and set API base URL in Settings'); return; }
+  const session = `sess_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  const auth = `dev_${Math.random().toString(36).slice(2,6)}`; // replace with server-minted token in production
+  try {
+    localStorage.setItem('scan:pending', JSON.stringify({ session, expenseId, at: Date.now() }));
+  } catch {}
+  const payload = encodeURIComponent(JSON.stringify({ session, auth, expenseId }));
+  const success = encodeURIComponent(`${location.origin}${location.pathname}?scan=done`);
+  const cancel = encodeURIComponent(`${location.origin}${location.pathname}?scan=cancel`);
+  const error = encodeURIComponent(`${location.origin}${location.pathname}?scan=error`);
+  const shortcutName = encodeURIComponent('Scan to Web');
+  const url = `shortcuts://x-callback-url/run-shortcut?name=${shortcutName}&input=text&text=${payload}&x-success=${success}&x-cancel=${cancel}&x-error=${error}`;
+  // Attempt to open Shortcuts
+  location.href = url;
+}
+
+async function launchShortcutsScanToFiles(expenseId) {
+  // Build a filename from expense details: vendor-date-time-currency-value.pdf
+  try {
+    const expense = await (typeof getExpenseById === 'function' ? getExpenseById(expenseId) : null);
+    const scan = await loadScanSettings();
+    const trip = expense?.tripId ? await getTripById(expense.tripId) : null;
+    const fn = buildScanFilename(expense, scan, trip);
+    const sf = buildScanSubfolder(expense, scan, trip);
+    try {
+      localStorage.setItem('scan:pending-files', JSON.stringify({ expenseId, filename: fn, subfolder: sf, at: Date.now() }));
+    } catch {}
+    const payload = encodeURIComponent(JSON.stringify({ expenseId, filename: fn, subfolder: sf }));
+    const success = encodeURIComponent(`${location.origin}${location.pathname}?scan=files-done`);
+    const cancel = encodeURIComponent(`${location.origin}${location.pathname}?scan=cancel`);
+    const error = encodeURIComponent(`${location.origin}${location.pathname}?scan=error`);
+    const shortcutName = encodeURIComponent('Scan to Files');
+    const url = `shortcuts://x-callback-url/run-shortcut?name=${shortcutName}&input=text&text=${payload}&x-success=${success}&x-cancel=${cancel}&x-error=${error}`;
+    location.href = url;
+  } catch (e) {
+    console.error('Failed to launch Shortcuts (Files mode)', e);
+    alert('Unable to launch Shortcuts for Files mode');
+  }
+}
+
+function buildScanFilename(expense, scan, trip) {
+  const safe = (s) => String(s || '')
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9\-_.\s]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  const desc = safe(expense?.description || 'receipt');
+  const d = expense?.date ? new Date(expense.date) : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const date = `${y}${m}${day}`;
+  const time = `${hh}${mm}`;
+  const cur = safe(expense?.currency || '');
+  const amt = (Number(expense?.amount) || 0).toFixed(2).replace(/\./g,'-');
+  const tpl = scan?.filenameTemplate || '{vendor}-{date}-{time}-{currency}-{amount}.pdf';
+  const ctx = {
+    vendor: desc,
+    date,
+    time,
+    currency: cur,
+    amount: amt,
+    trip: safe(trip?.name || '')
+  };
+  return safeFilename(applyTemplate(tpl, ctx));
+}
+
+function buildScanSubfolder(expense, scan, trip) {
+  const tpl = scan?.subfolderTemplate || '';
+  if (!tpl) return '';
+  const d = expense?.date ? new Date(expense.date) : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const ctx = {
+    vendor: expense?.description || 'receipt',
+    date: `${y}${m}${day}`,
+    time: `${hh}${mm}`,
+    currency: expense?.currency || '',
+    amount: (Number(expense?.amount) || 0).toFixed(2),
+    trip: trip?.name || ''
+  };
+  return safePath(applyTemplate(tpl, ctx));
+}
+
+function applyTemplate(tpl, ctx) {
+  return String(tpl).replace(/\{(vendor|date|time|currency|amount|trip)\}/g, (_, k) => ctx[k] ?? '');
+}
+
+function safeFilename(name) {
+  // Keep extension, sanitize base
+  const parts = String(name || '').split('.');
+  const ext = parts.length > 1 ? '.' + parts.pop() : '';
+  const base = parts.join('.')
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9\-_.\s]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  return (base || 'receipt') + (ext || '.pdf');
+}
+
+function safePath(pathStr) {
+  return String(pathStr || '')
+    .split('/')
+    .map(seg => seg
+      .normalize('NFKD')
+      .replace(/[^a-zA-Z0-9\-_.\s]/g, '')
+      .trim()
+      .replace(/\s+/g, '-'))
+    .filter(Boolean)
+    .join('/');
 }
 
 // (Scan Documents via Files is not supported directly in web; see README.)

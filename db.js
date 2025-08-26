@@ -85,6 +85,10 @@ async function getExpensesByTripId(tripId) {
   }
 }
 
+async function getExpenseById(id) {
+  return db.get('expenses', id);
+}
+
 async function updateTripStatus(tripId, newStatus) {
   if (window.DEBUG) console.debug('[DB] updateTripStatus', { tripId, newStatus });
   const trip = await getTripById(tripId);
@@ -130,6 +134,26 @@ async function saveIconSettings(map) {
     await db.put('settings', { key: 'icons', value: map });
   } catch (e) {
     console.error('[DB] saveIconSettings error', e);
+    throw e;
+  }
+}
+
+// Scan (Shortcuts) settings helpers
+async function getScanSettings() {
+  try {
+    const record = await db.get('settings', 'scan');
+    return record?.value || {};
+  } catch (e) {
+    if (window.DEBUG) console.warn('[DB] getScanSettings failed', e);
+    return {};
+  }
+}
+
+async function saveScanSettings(map) {
+  try {
+    await db.put('settings', { key: 'scan', value: map });
+  } catch (e) {
+    console.error('[DB] saveScanSettings error', e);
     throw e;
   }
 }

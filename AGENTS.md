@@ -4,6 +4,7 @@
 - Root static PWA. Key files: `index.html`, `styles.css`, `app.js` (bootstraps, debug), `ui.js` (DOM rendering, drag-and-drop), `db.js` (IndexedDB via `idb`), `register-sw.js` and `service-worker.js` (PWA), `manifest.json`, `favicon.png`.
 - UI sections (rendered by `renderShell` in `ui.js`): `#active-trips-container`, `#submitted-trips-container`, `#reimbursed-trips-container` inside `#trip-list-container`.
 - Settings page (rendered by `renderSettingsPage`): left column half‑width “Category Colours”; right column two stacked cards “Cache and Offline” and “Delete Content”; an additional row below with two icon‑selection cards.
+ - iOS Shortcuts: Settings adds an “iOS Shortcuts” card (toggle + API base URL) enabling native Scan Documents via Shortcuts.
 - Trip card affordance: single-click selects; double-click opens details (no button).
 - Tests: `tests/` with Playwright specs; config in `playwright.config.ts`. Test reports in `playwright-report/` and `test-results/`.
 
@@ -43,6 +44,7 @@
 - Caching: Use `?v=dev&nosw` in the URL to force fresh loads while iterating.
 - Data: Uses IndexedDB (`ExpenseTracker`). If needed, we can gate an in-memory store behind a flag.
   - Settings: `settings` store holds `{ key, value }` records for `categoryColors` and `icons`.
+  - Shortcuts: `settings.scan = { enable: boolean, apiBaseUrl: string }`.
 
 ## GitHub Pages Deploy
 - Changes made: SW disabled globally; favicon path made relative; `.gitignore` updated (ignores `node_modules/`); deploy workflow uses `peaceiris/actions-gh-pages@v4` to publish repo root to `gh-pages`.
@@ -84,11 +86,18 @@
   - Disabled by default; toggle using `DEFAULT_ENABLE_SW` or `window.ENABLE_SW`; `?nosw` honored. When enabling, bump `v` and validate in DevTools.
 - Deployment:
   - GitHub Pages workflow publishes repo root to `gh-pages`; asset paths are relative.
- - Settings UI:
-   - Reset button is full width inside card padding.
-   - “Clear cache” unregisters Service Workers and clears caches.
-   - “Delete content” clears `trips`, `expenses`, and `receipts` stores (confirm required).
-   - Icon options persist class names for Receipt/Home/Cog; applied in headers and expense cards.
+- Settings UI:
+  - Reset button is full width inside card padding.
+  - “Clear cache” unregisters Service Workers and clears caches.
+  - “Delete content” clears `trips`, `expenses`, and `receipts` stores (confirm required).
+  - Icon options persist class names for Receipt/Home/Cog; applied in headers and expense cards.
+- Shortcuts integration:
+  - Launch via `shortcuts://x-callback-url/run-shortcut` with `x-success=?scan=done`.
+  - Before launch, store `{ session, expenseId }` under `localStorage['scan:pending']`.
+  - On return, `app.js` parses `?scan=`; on `done`, fetch `GET {API_BASE}/files/:id`, save as receipt, mark current, and strip query.
+  - The “Scan with iOS Shortcuts” action is available in the Add/Retake sheet when enabled, configured, and on iOS Safari.
+  - Files mode: A separate option “Scan (Shortcuts → Files)” launches a Shortcut that saves the PDF locally (no server). On `?scan=files-done`, the app shows a button to open the Files picker and you choose the just‑saved PDF. The app passes a filename like `vendor-date-time-currency-value.pdf` based on the expense.
+  - Templates: Filename and (optional) subfolder are configurable in Settings using variables `{vendor}`, `{date}` (YYYYMMDD), `{time}` (HHmm), `{currency}`, `{amount}`, `{trip}`. Subfolder can reflect parent Trip (e.g., `Trip-{trip}`).
 
 ## QA Checklist
 - Trips
@@ -110,3 +119,13 @@
   - Clear cache unregisters Service Workers and clears caches.
   - Delete content removes Trips, Expenses, Receipts and returns to Trips view.
   - Icon choices persist and update header/receipt icons immediately.
+  - Shortcuts toggle persists; API base URL is respected.
+  - “Scan with iOS Shortcuts” appears only on iOS Safari when enabled and API base is set.
+  - After a scan, receipt is attached to the intended expense and marked current.
+
+## Development: Shortcuts Integration
+1. Add Settings card “iOS Shortcuts” with toggle and `apiBaseUrl` input (`ui.js`, persisted via `db.js` `getScanSettings`/`saveScanSettings`).
+2. Add an action sheet for receipts with two options: Camera/Photos (existing file input) and “Scan with iOS Shortcuts.”
+3. Implement `launchShortcutsScan(expenseId)` to compose the x‑callback URL with JSON `{ session, auth, expenseId }`; store pending session in `localStorage`.
+4. In `app.js`, add `handleScanCallbackIfPresent()` on boot to process `?scan=done|cancel|error`; on `done`, fetch the file from `{API_BASE}/files/:id`, save to receipts, mark current, then strip the query.
+5. Provide `server/server.js` (Express + multer) for local uploads during development.

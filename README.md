@@ -101,3 +101,85 @@ Data & Receipts
 
 Testing
 - Playwright e2e: `npm run test:e2e` (headed: `:headed`, UI: `:ui`). Set `BASE_URL=http://localhost:3000 APP_VERSION=dev`.
+
+## iOS Shortcuts: Scan Documents Integration
+
+This app can launch Apple Shortcuts to scan documents natively and attach the result as a receipt.
+
+What it does
+- Launches the Shortcuts app via `shortcuts://x-callback-url/run-shortcut` from a user tap
+- Runs a “Scan to Web” Shortcut that scans pages and uploads to your API (`/upload`)
+- Returns to the app: `?scan=done&result=<id>`, which the app uses to fetch the file and attach to the selected expense
+
+Prereqs
+- iPhone/iPad with Shortcuts app installed
+- A minimal API (see below) reachable from the device
+
+Enable in Settings
+- Open Settings → iOS Shortcuts
+  - Enable “Scan Documents” integration
+  - Set API base URL (e.g., `http://localhost:4000` during dev)
+
+Minimal backend for development
+```bash
+cd server
+npm i express multer nanoid
+node server.js            # runs on http://localhost:4000
+```
+
+The server exposes:
+- `POST /upload` (multipart form): fields `file`, `session`, `auth`; responds `{ id }`
+- `GET /files/:id`: returns the uploaded file
+
+Add the Shortcut on iOS
+1) Create a new Shortcut named “Scan to Web” with these steps:
+- Get Dictionary from Shortcut Input → parse JSON `{ session, auth, expenseId }`
+- Scan Documents
+- Make PDF (optional, recommended)
+- Get Contents of URL → POST `https://your.api/upload` with form fields: `file`, `session`, `auth`
+- Get Dictionary from (response) → Get Dictionary Value `id` → Text (the id)
+
+2) Test: on an expense, tap the receipt icon → Add → Scan with iOS Shortcuts
+
+How it returns
+- The Shortcut opens back to the app with `?scan=done&result=<id>`
+- The app fetches `GET {API_BASE}/files/:id`, stores the file in IndexedDB receipts, and marks it current
+
+Security notes
+- Use short‑lived, one‑time `auth` tokens tied to `session` server‑side (HMAC/JWT)
+- Validate MIME and size; use HTTPS in production
+- Do not leak the file URL in `x-success` — only return an opaque `id`
+
+Troubleshooting
+- Tapping does nothing → Launch must be from a user gesture, ensure Shortcuts installed
+- Returns without a result → Ensure the last Shortcut step outputs `id` as text
+- Upload fails → In Shortcut “Get Contents of URL”, set Request Body = Form and add `file`
+
+### Offline Files Mode (no server)
+
+Prefer staying fully offline? Use Shortcuts to save the PDF locally, then pick it from Files.
+
+Flow
+- In Settings → iOS Shortcuts, enable “Files mode (save PDF locally)”
+- On the expense → Add receipt → “Scan (Shortcuts → Files)”
+- The Shortcut scans and saves a PDF to Files (e.g., Files → Shortcuts → ExpenseTracker) and returns to the app with `?scan=files-done`
+- The app prompts you to select the scanned PDF; tap “Select scanned PDF” to open the Files picker and choose it
+
+Filename
+- The app passes a filename to the Shortcut as `vendor-date-time-currency-value.pdf` using the expense fields that initiated the scan (customizable in Settings)
+- Example: `Starbucks-20250826-0945-£-3-50.pdf`
+
+Shortcut (“Scan to Files”) outline
+- Get Dictionary from Shortcut Input (JSON has `expenseId`, `filename`)
+- Scan Documents → Make PDF (optional, recommended)
+- Save File → Destination: iCloud Drive (or On My iPhone) → `Shortcuts/ExpenseTracker[/<subfolder>]` → Filename from input
+- Text → `ok` (so the app gets `?scan=files-done`)
+
+Notes
+- The Files picker requires a user tap; the app shows a button to open it after return
+- Files usually remembers the last opened folder, so subsequent selections are quick
+
+Templates (Settings → iOS Shortcuts)
+- Filename template: defaults to `{vendor}-{date}-{time}-{currency}-{amount}.pdf`
+- Subfolder template (optional): e.g., `Trip-{trip}` to group by trip
+- Supported variables: `{vendor}`, `{date}` (YYYYMMDD), `{time}` (HHmm), `{currency}`, `{amount}`, `{trip}`
