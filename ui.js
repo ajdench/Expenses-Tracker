@@ -306,9 +306,9 @@ async function renderTripDetail(tripId) {
   app.innerHTML = `
     <div class="container mt-4">
       <div class="card card-uniform-height text-white btn-custom-green">
-        <div class="card-header d-flex justify-content-center align-items-center" style="position: relative;">
+        <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
           <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi bi-house-door-fill home-icon"></i></button>
-          <h1 class="h4 header-title mb-0">${escapeHTML(trip.name)}</h1>
+          <h4 class="header-title">${escapeHTML(trip.name)}</h4>
           <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi bi-gear-fill home-icon"></i></button>
         </div>
       </div>
@@ -376,12 +376,12 @@ function buildExpenseCard(expense, isSelected) {
         <p class="fw-bold mb-0">${escapeHTML(expense.currency)}${Number(expense.amount).toFixed(2)}</p>
       </div>
       <div class="col-icon text-end" aria-hidden="true">
-        <i class="bi bi-receipt expense-receipt-icon"></i>
+        <i class="bi bi-receipt expense-receipt-icon" role="button" tabindex="0" title="Add receipt"></i>
       </div>
     </div>
   `;
 
-  // Apply category color
+  // Apply category color and receipt indicator
   queueMicrotask(async () => {
     try {
       const map = await loadCategoryColorMap();
@@ -390,6 +390,10 @@ function buildExpenseCard(expense, isSelected) {
       if (pill) {
         pill.style.backgroundColor = color;
         pill.style.color = '#ffffff';
+      }
+      const receipts = await (typeof getReceiptsByExpenseId === 'function' ? getReceiptsByExpenseId(expense.id) : []);
+      if (receipts && receipts.length) {
+        card.querySelector('.expense-receipt-icon')?.classList.add('has-receipt');
       }
     } catch (e) {
       console.warn('Failed to apply category color', e);
@@ -405,6 +409,25 @@ function buildExpenseCard(expense, isSelected) {
       selectExpense(expense.id);
     }
   });
+
+  // Mobile long-press to edit (no extra buttons)
+  attachLongPressToEdit(card, expense);
+
+  // Receipt icon click → open camera/gallery
+  const icon = card.querySelector('.expense-receipt-icon');
+  if (icon) {
+    icon.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      if (icon.classList.contains('has-receipt')) {
+        await showReceiptModal(expense.id);
+      } else {
+        openReceiptPicker(expense.id, icon);
+      }
+    });
+    icon.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReceiptPicker(expense.id, icon); }
+    });
+  }
   return card;
 }
 
@@ -675,6 +698,144 @@ function buildAddExpenseShadowCard(tripId) {
 
   renderShadow();
   return card;
+}
+
+// Long-press (touch) to open editor on mobile without extra UI
+function attachLongPressToEdit(card, expense) {
+  let pressTimer = null;
+  let moved = false;
+  const start = (e) => {
+    moved = false;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(async () => {
+      await selectExpense(expense.id);
+      startEditExpense(card, expense);
+    }, 500);
+  };
+  const cancel = () => { clearTimeout(pressTimer); };
+  const onMove = (e) => { moved = true; clearTimeout(pressTimer); };
+
+  card.addEventListener('touchstart', start, { passive: true });
+  card.addEventListener('touchend', cancel);
+  card.addEventListener('touchcancel', cancel);
+  card.addEventListener('touchmove', onMove, { passive: true });
+}
+
+// Open camera/gallery, save to IndexedDB, and mark icon
+function openReceiptPicker(expenseId, iconEl) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    if (file) {
+      try {
+        await saveReceiptForExpense(expenseId, file);
+        iconEl?.classList.add('has-receipt');
+        // If a modal is open for this expense, refresh it
+        const modalId = `receipt-modal-${expenseId}`;
+        const modalEl = document.getElementById(modalId);
+        if (modalEl) await renderReceiptModalContent(modalEl, expenseId);
+      } catch (e) {
+        console.error('Failed to save receipt', e);
+        alert('Failed to save receipt');
+      }
+    }
+    document.body.removeChild(input);
+  });
+  input.click();
+}
+
+async function showReceiptModal(expenseId) {
+  const modalId = `receipt-modal-${expenseId}`;
+  let modalEl = document.getElementById(modalId);
+  if (!modalEl) {
+    modalEl = document.createElement('div');
+    modalEl.className = 'modal fade';
+    modalEl.id = modalId;
+    modalEl.tabIndex = -1;
+    modalEl.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Receipts</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="receipt-viewer"><img id="receipt-main" alt="Receipt" /></div>
+            <div class="receipt-thumbs mt-2" id="receipt-thumbs"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="retake-receipt">Retake / Add</button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modalEl);
+  }
+
+  await renderReceiptModalContent(modalEl, expenseId);
+
+  const modal = getModalInstance(modalId);
+  modal?.show();
+
+  const retakeBtn = modalEl.querySelector('#retake-receipt');
+  retakeBtn.onclick = () => openReceiptPicker(expenseId, document.querySelector(`[data-expense-id="${expenseId}"] .expense-receipt-icon`) );
+  const makeCurrentBtn = document.createElement('button');
+  makeCurrentBtn.type = 'button';
+  makeCurrentBtn.className = 'btn btn-custom-green';
+  makeCurrentBtn.id = 'make-current';
+  makeCurrentBtn.textContent = 'Make Current';
+  modalEl.querySelector('.modal-footer').insertBefore(makeCurrentBtn, modalEl.querySelector('[data-bs-dismiss="modal"]'));
+  makeCurrentBtn.onclick = async () => {
+    const active = modalEl.querySelector('.receipt-thumb.receipt-thumb--active');
+    if (!active) return;
+    const id = active.dataset.id;
+    try {
+      await setCurrentReceipt(expenseId, id);
+      makeCurrentBtn.textContent = 'Current ✓';
+      setTimeout(() => (makeCurrentBtn.textContent = 'Make Current'), 1200);
+    } catch (e) {
+      console.error('Failed to set current receipt', e);
+    }
+  };
+}
+
+async function renderReceiptModalContent(modalEl, expenseId) {
+  const mainImg = modalEl.querySelector('#receipt-main');
+  const thumbs = modalEl.querySelector('#receipt-thumbs');
+  thumbs.innerHTML = '';
+  const receipts = await getReceiptsByExpenseId(expenseId);
+  if (!receipts.length) {
+    mainImg.removeAttribute('src');
+    mainImg.alt = 'No receipts yet';
+    return;
+  }
+  const urls = receipts.map(r => ({ id: r.id, url: URL.createObjectURL(r.blob), current: !!r.current }));
+  const setActive = (id) => {
+    thumbs.querySelectorAll('.receipt-thumb').forEach(el => el.classList.toggle('receipt-thumb--active', el.dataset.id === id));
+    const u = urls.find(x => x.id === id);
+    if (u) mainImg.src = u.url;
+  };
+  urls.forEach((u, idx) => {
+    const t = document.createElement('div');
+    t.className = 'receipt-thumb';
+    t.dataset.id = u.id;
+    t.innerHTML = `<img src="${u.url}" alt="Receipt ${idx+1}">`;
+    t.addEventListener('click', () => setActive(u.id));
+    thumbs.appendChild(t);
+  });
+  const current = urls.find(u => u.current) || urls[0];
+  setActive(current.id);
+
+  // Revoke object URLs when modal hides
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    urls.forEach(u => URL.revokeObjectURL(u.url));
+  }, { once: true });
 }
 
 let currentSelectedExpenseId = null;

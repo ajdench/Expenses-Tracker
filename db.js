@@ -2,7 +2,7 @@
 let db;
 
 async function initDB() {
-  db = await idb.openDB('ExpenseTracker', 3, {
+  db = await idb.openDB('ExpenseTracker', 4, {
     upgrade(db, oldVersion, newVersion, transaction) {
       if (oldVersion < 1) {
         db.createObjectStore('trips', { keyPath: 'id' });
@@ -16,6 +16,12 @@ async function initDB() {
       if (oldVersion < 3) {
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'key' });
+        }
+      }
+      if (oldVersion < 4) {
+        if (!db.objectStoreNames.contains('receipts')) {
+          const receipts = db.createObjectStore('receipts', { keyPath: 'id' });
+          receipts.createIndex('by_expenseId', 'expenseId');
         }
       }
     }
@@ -106,4 +112,39 @@ async function saveCategoryColors(map) {
     console.error('[DB] saveCategoryColors error', e);
     throw e;
   }
+}
+
+// Receipt helpers
+async function saveReceiptForExpense(expenseId, file) {
+  const id = `${expenseId}-${Date.now()}`;
+  const record = {
+    id,
+    expenseId,
+    name: file.name || 'receipt',
+    mime: file.type || 'application/octet-stream',
+    size: file.size || 0,
+    createdAt: new Date().toISOString(),
+    blob: file
+  };
+  return db.put('receipts', record);
+}
+
+async function getReceiptsByExpenseId(expenseId) {
+  try {
+    return await db.getAllFromIndex('receipts', 'by_expenseId', expenseId);
+  } catch (e) {
+    return [];
+  }
+}
+
+async function setCurrentReceipt(expenseId, receiptId) {
+  const tx = db.transaction('receipts', 'readwrite');
+  const store = tx.objectStore('receipts');
+  const idx = store.index('by_expenseId');
+  const all = await idx.getAll(expenseId);
+  for (const r of all) {
+    r.current = (r.id === receiptId);
+    await store.put(r);
+  }
+  await tx.done;
 }

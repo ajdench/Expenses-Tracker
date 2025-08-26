@@ -13,6 +13,10 @@
 - `npm run test:e2e:ui`: Playwright UI mode for focused runs.
 - Tip: To test against a custom server/version: `BASE_URL=http://localhost:3000 APP_VERSION=20250825-06 npm run test:e2e`.
 
+### Mobile UX Conventions
+- Edit expense: double-click on desktop; long-press (~500ms) on mobile (no extra buttons).
+- Receipts: tap grey icon to capture/upload; tap green icon to preview in a modal. Badge shows count of receipts. “Retake / Add” appends another image; “Make Current” marks the active preview as current (nothing is deleted).
+
 ## Coding Style & Naming Conventions
 - JavaScript: 2-space indent, semicolons, single quotes; `const`/`let` appropriately.
 - Naming: functions/vars `camelCase`; CSS classes/IDs `kebab-case` (e.g., `#add-trip-card`); constants `UPPER_SNAKE` when needed.

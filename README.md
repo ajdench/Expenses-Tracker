@@ -35,6 +35,10 @@ Open: `http://localhost:3000/index.html?v=dev&nosw`
 Notes
 - Service Worker is disabled during development and Pages deploys (see `register-sw.js`).
 - Data persists in the browser via IndexedDB (`ExpenseTracker`).
+ 
+### Mobile UX
+- Edit expense: double-click on desktop; long-press (~500ms) on mobile.
+- Receipts: tap grey receipt icon to capture/upload; tap green icon to preview receipts. The icon badge shows count. Use “Retake / Add” to append a new image; “Make Current” sets the active preview as current (older images are kept).
 
 ## Deploying to GitHub Pages
 
@@ -60,3 +64,4 @@ Visit: `https://<your-username>.github.io/<repo-name>/`
 
 Tips
 - While iterating, add `?v=dev&nosw` to the URL to avoid stale loads.
+ - To enable the Service Worker for production later, set `DEFAULT_ENABLE_SW = true` in `register-sw.js` (or set `window.ENABLE_SW = true` before loading it), remove `?nosw`, and bump the `v` query to bust caches.

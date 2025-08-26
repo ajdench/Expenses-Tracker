@@ -150,6 +150,11 @@
 .expense-card {
   border: 2px solid var(--light-grey) !important;
 }
+/* Keep trip card grey border even when selected (blue) and hovered */
+.trip-card.btn-custom-blue:hover,
+.trip-card.btn-custom-blue:focus {
+  border-color: var(--light-grey) !important;
+}
 /* Enforce exact height on trip cards (border-to-border) */
 .trip-card.card-uniform-height { height: var(--uniform-card-height) !important; box-sizing: border-box; }
 
@@ -247,7 +252,27 @@
 .add-trip-card:hover { box-shadow: none !important; }
 
 /* Expense card icon size */
-.expense-receipt-icon { font-size: 24px; line-height: 1; }
+.expense-receipt-icon { font-size: 24px; line-height: 1; color: var(--muted-grey); }
+.expense-receipt-icon.has-receipt { color: var(--theme-color-green) !important; }
+.receipt-count-badge {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  background: var(--theme-color-blue);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+/* Receipts modal */
+.receipt-viewer { display: flex; justify-content: center; align-items: center; }
+.receipt-viewer img { max-width: 100%; max-height: 60vh; border-radius: 0.25rem; }
+.receipt-thumbs { display: flex; gap: 0.5rem; overflow-x: auto; padding-top: 0.5rem; }
+.receipt-thumb { border: 2px solid var(--light-grey); border-radius: 0.25rem; padding: 2px; cursor: pointer; flex: 0 0 auto; }
+.receipt-thumb img { height: 64px; width: auto; display: block; }
+.receipt-thumb--active { border-color: var(--theme-color-blue); }
 
 /* Expense card layout tweaks */
 .expense-grid { display: flex; align-items: center; height: 100%; }
