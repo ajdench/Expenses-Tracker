@@ -35,9 +35,9 @@ Open your web browser and navigate to the local address provided by the server (
 
 ## Development Conventions
 
-*   **Database:** The application uses IndexedDB for all local data storage. The `db.js` file provides a simple abstraction layer for database operations.
-*   **UI:** The user interface is dynamically rendered using vanilla JavaScript in `ui.js`.
-*   **Styling:** The project uses Bootstrap for styling.
+*   **Database:** The application uses IndexedDB for all local data storage, with the schema managed in `db.js`. The database includes object stores for `trips`, `expenses`, `settings`, and `receipts`.
+*   **UI:** The user interface is dynamically rendered using vanilla JavaScript in `ui.js`. PDF receipts are rendered using `PDF.js`.
+*   **Styling:** The project uses Bootstrap for styling, with customizations in `styles.css`.
 *   **Offline First:** The service worker in `service-worker.js` is configured to cache all static assets, ensuring the application is available offline.
 *   **Modularity:** The code is organized into separate files with distinct responsibilities:
     *   `app.js`: Main application logic and initialization.
@@ -48,9 +48,11 @@ Open your web browser and navigate to the local address provided by the server (
 
 ## To-Do
 
+*   [ ] **CRITICAL:** Fix the main application rendering failure, as documented in `bug-log.md`. This prevents trip and expense cards from being displayed.
 *   [ ] Implement Archive Logic (soft delete) for trips.
 *   [ ] Implement Export/Import backup functionality.
 *   [ ] Refine the drag-and-drop animation to be smoother.
+*   [ ] Implement the iOS "Scan Documents" feature using Shortcuts, as outlined in `AGENTS.md`.
 *   [x] Fix the home button icon color in the trip detail view.
 *   [x] Implement Expense Editing.
 *   [x] Remove unnecessary padding from text within cards.
@@ -58,4 +60,4 @@ Open your web browser and navigate to the local address provided by the server (
 *   [x] Implement dynamic service worker paths for local and GitHub Pages environments.
 *   [x] Resolve `favicon.png` 404 on GitHub Pages.
 *   [x] Resolve `ReferenceError: Can't find variable: window` in service worker.
-*   [ ] **CRITICAL:** Fix "Save Trip" functionality on `localhost` and GitHub Pages (input value is empty during form submission).
+*   [x] Fix Bootstrap modal not hiding on GitHub Pages (re-implemented with a new modal).

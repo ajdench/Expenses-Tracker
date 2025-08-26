@@ -438,7 +438,7 @@ function buildExpenseCard(expense, isSelected) {
   // Mobile long-press to edit (no extra buttons)
   attachLongPressToEdit(card, expense);
 
-  // Receipt icon click → open action sheet (add) or preview
+  // Receipt icon click → add (camera/photos) or preview
   const icon = card.querySelector('.expense-receipt-icon');
   if (icon) {
     icon.addEventListener('click', async (ev) => {
@@ -446,14 +446,14 @@ function buildExpenseCard(expense, isSelected) {
       if (icon.classList.contains('has-receipt')) {
         await showReceiptModal(expense.id);
       } else {
-        openReceiptActionSheet(expense.id, icon);
+        openReceiptPicker(expense.id, icon);
       }
     });
     icon.addEventListener('keydown', async (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') {
         ev.preventDefault();
         if (icon.classList.contains('has-receipt')) await showReceiptModal(expense.id);
-        else openReceiptActionSheet(expense.id, icon);
+        else openReceiptPicker(expense.id, icon);
       }
     });
   }
@@ -778,54 +778,7 @@ function openReceiptPicker(expenseId, iconEl) {
   input.click();
 }
 
-function openReceiptPickerFiles(expenseId, iconEl) {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'application/pdf,image/*';
-  input.style.position = 'fixed';
-  input.style.left = '-9999px';
-  document.body.appendChild(input);
-  input.addEventListener('change', async () => {
-    const file = input.files && input.files[0];
-    if (file) {
-      try {
-        await saveReceiptForExpense(expenseId, file);
-        iconEl?.classList.add('has-receipt');
-        try {
-          const receipts = await getReceiptsByExpenseId(expenseId);
-          const badge = iconEl?.parentElement?.querySelector('.receipt-count-badge');
-          if (badge) { badge.textContent = String(receipts.length); badge.classList.remove('d-none'); }
-        } catch {}
-        const modalId = `receipt-modal-${expenseId}`;
-        const modalEl = document.getElementById(modalId);
-        if (modalEl) await renderReceiptModalContent(modalEl, expenseId);
-      } catch (e) {
-        console.error('Failed to save receipt', e);
-        alert('Failed to save receipt');
-      }
-    }
-    document.body.removeChild(input);
-  });
-  input.click();
-}
-
-function openReceiptActionSheet(expenseId, iconEl) {
-  const modalId = `receipt-action-${expenseId}`;
-  let modalEl = document.getElementById(modalId);
-  if (!modalEl) {
-    modalEl = document.createElement('div');
-    modalEl.className = 'modal fade';
-    modalEl.id = modalId;
-    modalEl.tabIndex = -1;
-    modalEl.innerHTML = `
-      <div class=\"modal-dialog modal-dialog-centered\">\n        <div class=\"modal-content\">\n          <div class=\"modal-header\">\n            <h5 class=\"modal-title\">Add receipt</h5>\n            <button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\" aria-label=\"Close\"></button>\n          </div>\n          <div class=\"modal-body d-grid gap-2\">\n            <button type=\"button\" class=\"btn btn-outline-primary\" id=\"scan-docs\">Scan Document (Files)</button>\n            <button type=\"button\" class=\"btn btn-outline-secondary\" id=\"camera-photos\">Camera / Photos</button>\n          </div>\n        </div>\n      </div>`;
-    document.body.appendChild(modalEl);
-  }
-  const modal = getModalInstance(modalId);
-  modal?.show();
-  modalEl.querySelector('#scan-docs').onclick = () => { modal?.hide(); openReceiptPickerFiles(expenseId, iconEl); };
-  modalEl.querySelector('#camera-photos').onclick = () => { modal?.hide(); openReceiptPicker(expenseId, iconEl); };
-}
+// (Scan Documents via Files is not supported directly in web; see README.)
 
 async function showReceiptModal(expenseId) {
   const modalId = `receipt-modal-${expenseId}`;
@@ -888,6 +841,16 @@ async function showReceiptModal(expenseId) {
 async function renderReceiptModalContent(modalEl, expenseId) {
   const mainImg = modalEl.querySelector('#receipt-main-img');
   const mainPdf = modalEl.querySelector('#receipt-main-pdf');
+  const viewer = modalEl.querySelector('.receipt-viewer');
+  let mainCanvas = viewer.querySelector('#receipt-main-canvas');
+  if (!mainCanvas) {
+    mainCanvas = document.createElement('canvas');
+    mainCanvas.id = 'receipt-main-canvas';
+    mainCanvas.style.display = 'none';
+    mainCanvas.style.maxWidth = '100%';
+    mainCanvas.style.maxHeight = '60vh';
+    viewer.appendChild(mainCanvas);
+  }
   const thumbs = modalEl.querySelector('#receipt-thumbs');
   thumbs.innerHTML = '';
   const receipts = await getReceiptsByExpenseId(expenseId);
@@ -902,10 +865,23 @@ async function renderReceiptModalContent(modalEl, expenseId) {
     const u = urls.find(x => x.id === id);
     if (!u) return;
     if ((u.mime || '').startsWith('application/pdf')) {
-      mainImg.style.display = 'none';
-      mainPdf.style.display = 'block';
-      mainPdf.src = u.url;
+      if (window.pdfjsLib) {
+        mainImg.style.display = 'none';
+        mainPdf.style.display = 'none';
+        mainCanvas.style.display = 'block';
+        renderPdfToCanvas(u.blob, mainCanvas).catch(()=>{
+          mainCanvas.style.display = 'none';
+          mainPdf.style.display = 'block';
+          mainPdf.src = u.url;
+        });
+      } else {
+        mainCanvas.style.display = 'none';
+        mainImg.style.display = 'none';
+        mainPdf.style.display = 'block';
+        mainPdf.src = u.url;
+      }
     } else {
+      mainCanvas.style.display = 'none';
       mainPdf.style.display = 'none';
       mainImg.style.display = 'block';
       mainImg.src = u.url;
@@ -917,7 +893,14 @@ async function renderReceiptModalContent(modalEl, expenseId) {
     t.dataset.id = u.id;
     if ((u.mime || '').startsWith('application/pdf')) {
       t.classList.add('receipt-thumb--pdf');
-      t.innerHTML = `<div style=\"height:64px;display:flex;align-items:center;justify-content:center;min-width:48px;\">PDF</div>`;
+      if (window.pdfjsLib) {
+        const c = document.createElement('canvas');
+        c.height = 64; c.width = 48;
+        renderPdfThumb(u.blob, c).catch(()=>{ c.replaceWith(document.createTextNode('PDF')); });
+        t.appendChild(c);
+      } else {
+        t.innerHTML = `<div style=\"height:64px;display:flex;align-items:center;justify-content:center;min-width:48px;\">PDF</div>`;
+      }
     } else {
       t.innerHTML = `<img src=\"${u.url}\" alt=\"Receipt ${idx+1}\">`;
     }
@@ -933,6 +916,30 @@ async function renderReceiptModalContent(modalEl, expenseId) {
   }, { once: true });
 }
 
+async function renderPdfToCanvas(blob, canvas) {
+  const ab = await blob.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  const page = await pdf.getPage(1);
+  const containerW = canvas.parentElement ? canvas.parentElement.clientWidth : 600;
+  const viewport = page.getViewport({ scale: 1 });
+  const scale = containerW / viewport.width;
+  const vp = page.getViewport({ scale });
+  canvas.width = vp.width; canvas.height = vp.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+}
+
+async function renderPdfThumb(blob, canvas) {
+  const ab = await blob.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 1 });
+  const scale = Math.min(canvas.width / viewport.width, canvas.height / viewport.height);
+  const vp = page.getViewport({ scale });
+  canvas.width = vp.width; canvas.height = vp.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+}
 let currentSelectedExpenseId = null;
 let expenseDeselectHandler = null;
 

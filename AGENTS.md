@@ -15,7 +15,7 @@
 
 ### Mobile UX Conventions
 - Edit expense: double-click on desktop; long-press (~500ms) on mobile (no extra buttons).
-- Receipts: tap grey icon to capture/upload; tap green icon to preview in a modal. Badge shows count of receipts. “Retake / Add” appends another image; “Make Current” marks the active preview as current (nothing is deleted).
+- Receipts: tap grey icon to capture (camera roll / camera); tap green icon to preview. Badge shows count of receipts. “Retake / Add” appends; “Make Current” marks the active preview as current (nothing is deleted). PDF thumbnails/view use PDF.js when available.
 
 ### UI/UX Conventions
 - Cards: all header, trip, and collapsed expense cards are 74px tall with 2px grey borders and 16px padding. A consistent 1rem gap exists below headers before content.
@@ -56,3 +56,45 @@
 - Toggle: In `register-sw.js`, set `DEFAULT_ENABLE_SW = true` (or define `window.ENABLE_SW = true` before loading `register-sw.js`).
 - Remove `?nosw` from URLs and bump the `v` query on assets/`index.html` to bust caches.
 - Validate: Open DevTools → Application → Service Workers to confirm registration; test offline.
+
+## Future: iOS “Scan Documents” via Shortcuts
+- Approach: Launch a preconfigured Apple Shortcuts flow with `shortcuts://x-callback-url/run-shortcut` from a user gesture; pass JSON (e.g., `{ session, auth, expenseId }`) in `text=`; set `x-success=/scan/done` to get a short token back.
+- Shortcut: Uses “Scan Documents” → (optional) “Make PDF” → “Get Contents of URL (POST multipart/form-data)” to your API → returns `{ id }` → redirects back with `?result=<id>`.
+- Backend: Minimal `/upload` (accept file + session/auth), returns `{ id }`; `/files/:id` serves the file securely. Use short‑lived one‑time tokens.
+- App callback: `/scan/done` reads `result` and can fetch/attach the file to the current expense (we already support image/PDF preview via PDF.js).
+- Constraints: Web cannot directly open the native scanner; Shortcuts is the only reliable web path without a native wrapper. Keep this as an optional, iOS‑only enhancement.
+
+## Decisions & Conventions
+- Data model:
+  - Receipts: `receipts` store (DB v4) with `by_expenseId` index and `current` flag per expense.
+  - Trips: Persist `position` for drag order; lists sort by `position` then `createdAt`.
+- UI contracts:
+  - Cards: headers, trip, collapsed expense cards are 74px tall, 2px grey borders, 16px padding, 1rem header→content gap.
+  - Gestures: long‑press to edit expenses (mobile); double‑click (desktop). Tap selected trip (mobile) opens details; double‑click on desktop.
+  - Forms: currency, amount, date, time centered (shadow + edit).
+  - Receipts: grey=add, green=preview, count badge; “Retake/Add” appends; “Make Current” marks active; never delete.
+- PDF handling:
+  - PDF.js via CDN; thumbnails render first page; main view uses canvas (fallback iframe).
+  - Revoke object URLs on modal close to limit memory usage.
+- iOS behavior:
+  - `viewport-fit=cover`, neutral `theme-color`, safe‑area paddings to avoid bright bars around Dynamic Island/home indicator.
+- Service Worker:
+  - Disabled by default; toggle using `DEFAULT_ENABLE_SW` or `window.ENABLE_SW`; `?nosw` honored. When enabling, bump `v` and validate in DevTools.
+- Deployment:
+  - GitHub Pages workflow publishes repo root to `gh-pages`; asset paths are relative.
+
+## QA Checklist
+- Trips
+  - Drag/reorder persists across reloads (position stored).
+  - Selected trip keeps grey border; tap again opens details on mobile; double‑click on desktop.
+- Expenses
+  - Long‑press to edit on mobile; double‑click on desktop.
+  - Collapsed card height is 74px; vendor/date/time positions consistent.
+  - Shadow “Add expense” placeholders are centered (currency/amount/date/time).
+- Receipts
+  - Add via camera/photos; green icon + count badge updates.
+  - Preview modal shows images and PDFs; thumbnails render; “Make Current” works.
+  - Object URLs revoked on modal close.
+- Layout/headers
+  - 1rem gap beneath page headers; modals respect 1rem container padding.
+  - iOS: no bright bars at top/bottom; safe‑area respected.

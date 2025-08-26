@@ -13,7 +13,7 @@ Fast, phone‑friendly trip expense tracking. Create trips, add expenses, attach
 
 - Trips: Add a trip; tap to select; tap again to open. Drag between Active, Submitted, Reimbursed.
 - Expenses: Add from the “Add expense” card. Long‑press an expense to edit on mobile (desktop: double‑click).
-- Receipts: Grey icon = add (camera roll / file / camera). Green icon = preview; thumbnails + “Retake / Add”; “Make Current” marks the active image. All images are kept.
+- Receipts: Grey icon = add (camera roll / camera). Green icon = preview; thumbnails + “Retake / Add”; “Make Current” marks the active image. All images are kept.
 - Mobile polish: Compact cards (74px), centered fields (currency/amount/date/time), safe‑area support for iPhone Dynamic Island.
 
 Try it on Pages: `https://<your-username>.github.io/<repo-name>/?v=dev&nosw`
@@ -26,7 +26,7 @@ Try it on Pages: `https://<your-username>.github.io/<repo-name>/?v=dev&nosw`
 | Select trip | Tap trip | Single‑click trip |
 | Add expense | Use the “Add expense” card | Same |
 | Edit expense | Long‑press expense | Double‑click expense |
-| Add receipt | Tap grey receipt icon → choose Photo Library / File / Camera | Click grey icon |
+| Add receipt | Tap grey receipt icon → choose Photo Library / Camera | Click grey icon |
 | Preview receipts | Tap green receipt icon | Click green icon |
 | Retake / add another receipt | In preview, tap “Retake / Add” | Same |
 | Mark current receipt | In preview, tap “Make Current” | Same |
