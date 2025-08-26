@@ -16,6 +16,12 @@ Fast, phone‑friendly trip expense tracking. Create trips, add expenses, attach
 - Receipts: Grey icon = add (camera roll / camera). Green icon = preview; thumbnails + “Retake / Add”; “Make Current” marks the active image. All images are kept.
 - Mobile polish: Compact cards (74px), centered fields (currency/amount/date/time), safe‑area support for iPhone Dynamic Island.
 
+### Settings
+- Category colours: Tap a category pill to pick a colour. Reset restores defaults (full‑width button).
+- Cache and Offline: “Clear cache” unregisters Service Workers and clears cached assets (dashed gold button).
+- Delete Content: “Delete content” removes all Trips, Expenses and Receipts (dashed orange button, confirm required).
+- Icons: Choose Receipt, Home, and Settings icons. Choices apply across headers and expense cards and persist in the browser.
+
 Try it on Pages: `https://<your-username>.github.io/<repo-name>/?v=dev&nosw`
 
 ### Quick Actions
@@ -48,6 +54,7 @@ Open: `http://localhost:3000/index.html?v=dev&nosw`
 Notes
 - Service Worker is disabled during development and Pages deploys (see `register-sw.js`).
 - Data persists in the browser via IndexedDB (`ExpenseTracker`).
+ - Icon selections and category colours are saved under the `settings` store.
 
 Design/UX
 - Cards: headers, trip, and collapsed expense cards are 74px (2px grey borders, 16px padding). There’s a consistent 1rem gap below headers.
@@ -90,6 +97,7 @@ Structure
 Data & Receipts
 - Trips/Expenses: stored in IndexedDB (`ExpenseTracker`).
 - Receipts: stored as Blobs in an IndexedDB `receipts` store, indexed by `expenseId`. Preview modal uses object URLs; “Retake / Add” appends; “Make Current” marks current without deleting older images.
+ - Settings: `settings` store keeps `categoryColors` and `icons` (receipt/home/cog class names).
 
 Testing
 - Playwright e2e: `npm run test:e2e` (headed: `:headed`, UI: `:ui`). Set `BASE_URL=http://localhost:3000 APP_VERSION=dev`.

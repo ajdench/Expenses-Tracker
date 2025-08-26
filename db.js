@@ -114,6 +114,26 @@ async function saveCategoryColors(map) {
   }
 }
 
+// Icon settings helpers
+async function getIconSettings() {
+  try {
+    const record = await db.get('settings', 'icons');
+    return record?.value || {};
+  } catch (e) {
+    if (window.DEBUG) console.warn('[DB] getIconSettings failed', e);
+    return {};
+  }
+}
+
+async function saveIconSettings(map) {
+  try {
+    await db.put('settings', { key: 'icons', value: map });
+  } catch (e) {
+    console.error('[DB] saveIconSettings error', e);
+    throw e;
+  }
+}
+
 // Receipt helpers
 async function saveReceiptForExpense(expenseId, file) {
   const id = `${expenseId}-${Date.now()}`;
@@ -147,4 +167,18 @@ async function setCurrentReceipt(expenseId, receiptId) {
     await store.put(r);
   }
   await tx.done;
+}
+
+// Danger: Delete all domain content (trips, expenses, receipts)
+async function deleteAllContent() {
+  try {
+    const stores = ['trips', 'expenses', 'receipts'];
+    const tx = db.transaction(stores, 'readwrite');
+    await Promise.all(stores.map(name => tx.objectStore(name).clear()))
+      .catch(e => { throw e; });
+    await tx.done;
+  } catch (e) {
+    console.error('[DB] deleteAllContent error', e);
+    throw e;
+  }
 }

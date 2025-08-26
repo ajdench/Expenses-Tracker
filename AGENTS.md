@@ -3,6 +3,7 @@
 ## Project Structure & Module Organization
 - Root static PWA. Key files: `index.html`, `styles.css`, `app.js` (bootstraps, debug), `ui.js` (DOM rendering, drag-and-drop), `db.js` (IndexedDB via `idb`), `register-sw.js` and `service-worker.js` (PWA), `manifest.json`, `favicon.png`.
 - UI sections (rendered by `renderShell` in `ui.js`): `#active-trips-container`, `#submitted-trips-container`, `#reimbursed-trips-container` inside `#trip-list-container`.
+- Settings page (rendered by `renderSettingsPage`): left column half‑width “Category Colours”; right column two stacked cards “Cache and Offline” and “Delete Content”; an additional row below with two icon‑selection cards.
 - Trip card affordance: single-click selects; double-click opens details (no button).
 - Tests: `tests/` with Playwright specs; config in `playwright.config.ts`. Test reports in `playwright-report/` and `test-results/`.
 
@@ -41,6 +42,7 @@
 - Service Worker: Disabled globally in `register-sw.js` for development/Pages testing (unregisters any SW, clears caches). Re-enable later before production.
 - Caching: Use `?v=dev&nosw` in the URL to force fresh loads while iterating.
 - Data: Uses IndexedDB (`ExpenseTracker`). If needed, we can gate an in-memory store behind a flag.
+  - Settings: `settings` store holds `{ key, value }` records for `categoryColors` and `icons`.
 
 ## GitHub Pages Deploy
 - Changes made: SW disabled globally; favicon path made relative; `.gitignore` updated (ignores `node_modules/`); deploy workflow uses `peaceiris/actions-gh-pages@v4` to publish repo root to `gh-pages`.
@@ -82,6 +84,11 @@
   - Disabled by default; toggle using `DEFAULT_ENABLE_SW` or `window.ENABLE_SW`; `?nosw` honored. When enabling, bump `v` and validate in DevTools.
 - Deployment:
   - GitHub Pages workflow publishes repo root to `gh-pages`; asset paths are relative.
+ - Settings UI:
+   - Reset button is full width inside card padding.
+   - “Clear cache” unregisters Service Workers and clears caches.
+   - “Delete content” clears `trips`, `expenses`, and `receipts` stores (confirm required).
+   - Icon options persist class names for Receipt/Home/Cog; applied in headers and expense cards.
 
 ## QA Checklist
 - Trips
@@ -98,3 +105,8 @@
 - Layout/headers
   - 1rem gap beneath page headers; modals respect 1rem container padding.
   - iOS: no bright bars at top/bottom; safe‑area respected.
+- Settings
+  - Category Reset restores defaults and is full width.
+  - Clear cache unregisters Service Workers and clears caches.
+  - Delete content removes Trips, Expenses, Receipts and returns to Trips view.
+  - Icon choices persist and update header/receipt icons immediately.

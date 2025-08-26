@@ -125,6 +125,18 @@
   border-style: solid !important;
 }
 
+/* Dashed orange variant for destructive actions */
+.btn-dashed-orange {
+  border: 2px dashed #e67e22 !important; /* orange */
+  color: #e67e22 !important;
+  background-color: rgba(230, 126, 34, 0.10) !important;
+  font-weight: 700;
+}
+.btn-dashed-orange:hover,
+.btn-dashed-orange:focus {
+  border-style: solid !important;
+}
+
 /* Inline editor row layout */
 .edit-row {
   display: flex;
@@ -335,6 +347,26 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 }
 
 /* Settings layout */
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* left half, right half */
+  gap: 0.5rem; /* default internal gap matches forms/grids */
+  align-items: stretch;
+}
+.settings-right {
+  display: grid;
+  grid-template-rows: 1fr 1fr; /* two equal rows */
+  gap: 0.5rem; /* default internal gap */
+  height: 100%; /* fill the row to match left card height */
+}
+.settings-right > .card { height: 100%; }
+
+/* Second row under main settings grid for icon options */
+.settings-icons-row { grid-column: 1 / -1; }
+.settings-icons-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.settings-icon-option { display: flex; align-items: center; gap: 0.5rem; }
+.settings-icon-preview { font-size: 1.5rem; }
+
 .category-grid {
   display: grid;
   grid-template-columns: 1fr auto;

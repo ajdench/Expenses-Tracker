@@ -35,7 +35,7 @@ Open your web browser and navigate to the local address provided by the server (
 
 ## Development Conventions
 
-*   **Database:** The application uses IndexedDB for all local data storage, with the schema managed in `db.js`. The database includes object stores for `trips`, `expenses`, `settings`, and `receipts`.
+*   **Database:** The application uses IndexedDB for all local data storage, with the schema managed in `db.js`. The database includes object stores for `trips`, `expenses`, `settings` (for category colors and icons), and `receipts`.
 *   **UI:** The user interface is dynamically rendered using vanilla JavaScript in `ui.js`. PDF receipts are rendered using `PDF.js`.
 *   **Styling:** The project uses Bootstrap for styling, with customizations in `styles.css`.
 *   **Offline First:** The service worker in `service-worker.js` is configured to cache all static assets, ensuring the application is available offline.
@@ -52,7 +52,7 @@ Open your web browser and navigate to the local address provided by the server (
 *   [ ] Implement Archive Logic (soft delete) for trips.
 *   [ ] Implement Export/Import backup functionality.
 *   [ ] Refine the drag-and-drop animation to be smoother.
-*   [ ] Implement the iOS "Scan Documents" feature using Shortcuts, as outlined in `AGENTS.md`.
+*   [ ] Implement the iOS "Scan Documents" feature using Shortcuts, as outlined in `resources/scan-to-pwa-shortcuts.md`.
 *   [x] Fix the home button icon color in the trip detail view.
 *   [x] Implement Expense Editing.
 *   [x] Remove unnecessary padding from text within cards.

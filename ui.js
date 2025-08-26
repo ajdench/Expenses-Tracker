@@ -4,13 +4,14 @@ async function renderShell() {
   const app = document.getElementById('app');
   if (!app) return;
   dbg('renderShell');
+  const icons = await loadIconSettings();
   app.innerHTML = `
     <div class="container">
       <div class="card card-uniform-height text-center btn-custom-blue text-white">
         <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
-          <button id="receipt-icon" class="btn text-white btn-no-style header-btn-left" aria-label="Receipts"><i class="bi bi-receipt home-icon"></i></button>
+          <button id="receipt-icon" class="btn text-white btn-no-style header-btn-left" aria-label="Receipts"><i class="bi ${icons.receipt} home-icon"></i></button>
           <h4 class="header-title">Expenses</h4>
-          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi bi-gear-fill home-icon"></i></button>
+          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi ${icons.cog} home-icon"></i></button>
         </div>
       </div>
 
@@ -38,6 +39,7 @@ async function renderSettingsPage() {
   const allExpenses = await getAllExpenses();
   const discovered = Array.from(new Set(allExpenses.map(e => e.category))).filter(Boolean);
   const colorMap = await loadCategoryColorMap();
+  const icons = await loadIconSettings();
   const categories = Array.from(new Set([...Object.keys(DEFAULT_CATEGORY_COLORS), ...discovered]));
 
   const rows = categories.map(cat => {
@@ -53,20 +55,104 @@ async function renderSettingsPage() {
     <div class="container">
       <div class="card card-uniform-height bg-secondary text-white">
         <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
-          <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi bi-house-door-fill home-icon"></i></button>
+          <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi ${icons.home} home-icon"></i></button>
           <h4 class="header-title">Settings</h4>
         </div>
       </div>
-      <main id="settings-container">
-        <div class="card app-card">
-          <div class="card-body">
-            <h6 class="mb-2">Category Colours</h6>
-            <div id="category-color-list" class="d-flex flex-column gap-2">${rows || '<p class="text-placeholder mb-0">No categories yet</p>'}</div>
-            <div class="mt-3">
-              <button id="reset-cat-colors" class="btn btn-secondary">Reset</button>
+      <main id="settings-container" class="settings-grid">
+        <section class="settings-left">
+          <div class="card app-card h-100">
+            <div class="card-body">
+              <h6 class="mb-2">Category Colours</h6>
+              <div id="category-color-list" class="d-flex flex-column gap-2">${rows || '<p class="text-placeholder mb-0">No categories yet</p>'}</div>
+              <div class="mt-3">
+                <button id="reset-cat-colors" class="btn btn-secondary w-100">Reset</button>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
+        <section class="settings-right">
+          <div class="card app-card">
+            <div class="card-body d-flex flex-column justify-content-between">
+              <div>
+                <h6 class="mb-2">Cache and Offline</h6>
+                <p class="mb-1 text-placeholder">Clear cached assets and unregister Service Workers</p>
+              </div>
+              <div class="d-flex">
+                <button id="clear-app-cache" class="btn btn-dashed-gold w-100">Clear cache</button>
+              </div>
+            </div>
+          </div>
+          <div class="card app-card">
+            <div class="card-body d-flex flex-column justify-content-between">
+              <div>
+                <h6 class="mb-2">Delete Content</h6>
+                <p class="mb-1 text-placeholder">Delete all Trips, Expenses and Receipts</p>
+              </div>
+              <div class="d-flex">
+                <button id="delete-all-content" class="btn btn-dashed-orange w-100">Delete content</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="settings-icons-row">
+          <div class="settings-icons-grid">
+            <div class="card app-card">
+              <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                  <h6 class="mb-2">Receipt Icon</h6>
+                  <div class="d-flex flex-column gap-2">
+                    <label class="settings-icon-option">
+                      <input type="radio" name="icon-receipt" value="bi-receipt" ${icons.receipt === 'bi-receipt' ? 'checked' : ''}>
+                      <i class="bi bi-receipt settings-icon-preview"></i>
+                      <span>Receipt (current)</span>
+                    </label>
+                    <label class="settings-icon-option">
+                      <input type="radio" name="icon-receipt" value="bi-receipt-cutoff" ${icons.receipt === 'bi-receipt-cutoff' ? 'checked' : ''}>
+                      <i class="bi bi-receipt-cutoff settings-icon-preview"></i>
+                      <span>Receipt cutoff (stylised)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card app-card">
+              <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                  <h6 class="mb-2">Header Icons</h6>
+                  <div class="d-flex flex-column gap-2">
+                    <div>
+                      <div class="mb-1 text-placeholder">Home icon</div>
+                      <label class="settings-icon-option">
+                        <input type="radio" name="icon-home" value="bi-house-door-fill" ${icons.home === 'bi-house-door-fill' ? 'checked' : ''}>
+                        <i class="bi bi-house-door-fill settings-icon-preview"></i>
+                        <span>House door (current)</span>
+                      </label>
+                      <label class="settings-icon-option">
+                        <input type="radio" name="icon-home" value="bi-house-fill" ${icons.home === 'bi-house-fill' ? 'checked' : ''}>
+                        <i class="bi bi-house-fill settings-icon-preview"></i>
+                        <span>House (alternative)</span>
+                      </label>
+                    </div>
+                    <div class="mt-2">
+                      <div class="mb-1 text-placeholder">Settings icon</div>
+                      <label class="settings-icon-option">
+                        <input type="radio" name="icon-cog" value="bi-gear-fill" ${icons.cog === 'bi-gear-fill' ? 'checked' : ''}>
+                        <i class="bi bi-gear-fill settings-icon-preview"></i>
+                        <span>Gear (current)</span>
+                      </label>
+                      <label class="settings-icon-option">
+                        <input type="radio" name="icon-cog" value="bi-sliders" ${icons.cog === 'bi-sliders' ? 'checked' : ''}>
+                        <i class="bi bi-sliders settings-icon-preview"></i>
+                        <span>Sliders (alternative)</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   `;
@@ -74,6 +160,44 @@ async function renderSettingsPage() {
   document.getElementById('reset-cat-colors').addEventListener('click', async () => {
     await saveCategoryColors({});
     renderSettingsPage();
+  });
+  document.getElementById('clear-app-cache')?.addEventListener('click', clearAppCache);
+  document.getElementById('delete-all-content')?.addEventListener('click', async () => {
+    const proceed = confirm('Delete all Trips, Expenses and Receipts? This cannot be undone.');
+    if (!proceed) return;
+    try {
+      await deleteAllContent();
+      alert('All content deleted');
+      await renderTrips();
+    } catch (e) {
+      console.error('Failed to delete content', e);
+      alert('Failed to delete content');
+    }
+  });
+  // Icon radio handlers
+  document.querySelectorAll('input[name="icon-receipt"]').forEach(el => {
+    el.addEventListener('change', async (e) => {
+      const current = await getIconSettings();
+      current.receipt = e.target.value;
+      await saveIconSettings(current);
+      await renderSettingsPage();
+    });
+  });
+  document.querySelectorAll('input[name="icon-home"]').forEach(el => {
+    el.addEventListener('change', async (e) => {
+      const current = await getIconSettings();
+      current.home = e.target.value;
+      await saveIconSettings(current);
+      await renderSettingsPage();
+    });
+  });
+  document.querySelectorAll('input[name="icon-cog"]').forEach(el => {
+    el.addEventListener('change', async (e) => {
+      const current = await getIconSettings();
+      current.cog = e.target.value;
+      await saveIconSettings(current);
+      await renderSettingsPage();
+    });
   });
   // Inline color picking on pill click (auto-save)
   document.querySelectorAll('#category-color-list .expense-category-pill').forEach(pill => {
@@ -327,14 +451,15 @@ async function renderTrips(selectedTripId = null) {
 async function renderTripDetail(tripId) {
   const trip = await getTripById(tripId);
   const app = document.getElementById('app');
+  const icons = await loadIconSettings();
 
   app.innerHTML = `
     <div class="container">
       <div class="card card-uniform-height text-white btn-custom-green">
         <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
-          <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi bi-house-door-fill home-icon"></i></button>
+          <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi ${icons.home} home-icon"></i></button>
           <h4 class="header-title">${escapeHTML(trip.name)}</h4>
-          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi bi-gear-fill home-icon"></i></button>
+          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi ${icons.cog} home-icon"></i></button>
         </div>
       </div>
       <main id="expense-list-container" data-trip-id="${tripId}"></main>
@@ -362,6 +487,17 @@ const DEFAULT_CATEGORY_COLORS = {
 async function loadCategoryColorMap() {
   const saved = await (typeof getCategoryColors === 'function' ? getCategoryColors() : Promise.resolve({}));
   return { ...DEFAULT_CATEGORY_COLORS, ...(saved || {}) };
+}
+
+const DEFAULT_ICONS = {
+  receipt: 'bi-receipt',
+  home: 'bi-house-door-fill',
+  cog: 'bi-gear-fill'
+};
+
+async function loadIconSettings() {
+  const saved = await (typeof getIconSettings === 'function' ? getIconSettings() : Promise.resolve({}));
+  return { ...DEFAULT_ICONS, ...(saved || {}) };
 }
 
 async function colorizeCategorySelect(selectEl) {
@@ -415,6 +551,12 @@ function buildExpenseCard(expense, isSelected) {
       if (pill) {
         pill.style.backgroundColor = color;
         pill.style.color = '#ffffff';
+      }
+      const icons = await loadIconSettings();
+      const iconEl = card.querySelector('.expense-receipt-icon');
+      if (iconEl) {
+        const had = iconEl.classList.contains('has-receipt');
+        iconEl.className = `bi ${icons.receipt} expense-receipt-icon${had ? ' has-receipt' : ''}`;
       }
       const receipts = await (typeof getReceiptsByExpenseId === 'function' ? getReceiptsByExpenseId(expense.id) : []);
       if (receipts && receipts.length) {
