@@ -54,3 +54,9 @@ Open your web browser and navigate to the local address provided by the server (
 *   [x] Fix the home button icon color in the trip detail view.
 *   [x] Implement Expense Editing.
 *   [x] Remove unnecessary padding from text within cards.
+*   [x] Implement dynamic "No trips" messages.
+*   [x] Implement dynamic service worker paths for local and GitHub Pages environments.
+*   [x] Resolve `favicon.png` 404 on GitHub Pages.
+*   [x] Resolve `ReferenceError: Can't find variable: window` in service worker.
+*   [ ] **CRITICAL:** Fix "Save Trip" functionality on `localhost` and GitHub Pages (input value is empty during form submission).
+*   [ ] **CRITICAL:** Fix Bootstrap modal not hiding on GitHub Pages (`TypeError: null is not an object (evaluating 'modal.hide')`).

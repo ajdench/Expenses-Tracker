@@ -1,358 +1,764 @@
 // UI Rendering Logic
 
-async function renderTrips(selectedTripId = null) {
-  const trips = await getAllTrips();
+async function renderShell() {
   const app = document.getElementById('app');
-  
-  // Clear previous content
-  app.innerHTML = '';
-
-  // App Shell with Bootstrap classes
+  if (!app) return;
+  dbg('renderShell');
   app.innerHTML = `
     <div class="container mt-4">
-      <div class="card text-center btn-custom-blue text-white">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <div></div>
-          <h1>Expenses Tracker</h1>
-          <div></div>
+      <div class="card card-uniform-height text-center btn-custom-blue text-white">
+        <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
+          <button id="receipt-icon" class="btn text-white btn-no-style header-btn-left" aria-label="Receipts"><i class="bi bi-receipt home-icon"></i></button>
+          <h4 class="header-title">Expenses</h4>
+          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi bi-gear-fill home-icon"></i></button>
         </div>
       </div>
 
       <main id="trip-list-container" class="mt-4">
-        <h2 class="h4">Active</h2>
-        <div id="active-trips-container"></div>
-        <h2 class="h4 mt-4">Submitted</h2>
-        <div id="submitted-trips-container"></div>
-        <h2 class="h4 mt-4">Reimbursed</h2>
-        <div id="reimbursed-trips-container"></div>
+        <section class="mb-4">
+          <h5 class="mb-2 text-placeholder">Active</h5>
+          <div id="active-trips-container"></div>
+        </section>
+        <section class="mb-4">
+          <h5 class="mb-2 text-placeholder">Submitted</h5>
+          <div id="submitted-trips-container"></div>
+        </section>
+        <section class="mb-4">
+          <h5 class="mb-2 text-placeholder">Reimbursed</h5>
+          <div id="reimbursed-trips-container"></div>
+        </section>
       </main>
+    </div>
+  `;
+  document.getElementById('settings-btn').addEventListener('click', renderSettingsPage);
+}
 
-      <button id="add-trip-fab" type="button" class="btn btn-custom-blue btn-lg rounded-circle position-fixed bottom-0 end-0 m-3" data-bs-toggle="modal" data-bs-target="#add-trip-modal">
-        +
-      </button>
+async function renderSettingsPage() {
+  const app = document.getElementById('app');
+  const allExpenses = await getAllExpenses();
+  const discovered = Array.from(new Set(allExpenses.map(e => e.category))).filter(Boolean);
+  const colorMap = await loadCategoryColorMap();
+  const categories = Array.from(new Set([...Object.keys(DEFAULT_CATEGORY_COLORS), ...discovered]));
 
-      <!-- Add Trip Modal -->
-      <div class="modal fade" id="add-trip-modal" tabindex="-1" aria-labelledby="addTripModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="addTripModalLabel">Add New Trip</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-              <form id="add-trip-form">
-                <div class="mb-3">
-                  <label for="trip-name" class="form-label">Trip Name</label>
-                  <input type="text" class="form-control" id="trip-name" name="tripName">
-                </div>
-              </form>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" form="add-trip-form" class="btn btn-primary">Save Trip</button>
+  const rows = categories.map(cat => {
+    const color = colorMap[cat] || DEFAULT_CATEGORY_COLORS[cat] || DEFAULT_CATEGORY_COLORS['Other'];
+    const safeId = `cat-${cat.replace(/[^a-z0-9]/gi, '_')}`;
+    return `<div class="category-grid">
+      <span class="badge expense-category-pill" style="align-self:center; background-color:${color}; color:#fff;">${escapeHTML(cat)}</span>
+      <input class="settings-color-input" type="color" id="${safeId}" name="${escapeHTML(cat)}" value="${color}" />
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="container mt-4">
+      <div class="card card-uniform-height bg-secondary text-white">
+        <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
+          <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi bi-house-door-fill home-icon"></i></button>
+          <h4 class="header-title">Settings</h4>
+        </div>
+      </div>
+      <main id="settings-container" class="mt-4">
+        <div class="card app-card">
+          <div class="card-body">
+            <h6 class="mb-2">Category Colours</h6>
+            <div id="category-color-list" class="d-flex flex-column gap-2">${rows || '<p class="text-placeholder mb-0">No categories yet</p>'}</div>
+            <div class="d-flex justify-content-end gap-2 mt-3">
+              <button id="reset-cat-colors" class="btn btn-secondary">Reset to defaults</button>
+              <button id="save-cat-colors" class="btn btn-secondary">Save</button>
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   `;
-
-  const activeTripsContainer = document.getElementById('active-trips-container');
-  const submittedTripsContainer = document.getElementById('submitted-trips-container');
-  const reimbursedTripsContainer = document.getElementById('reimbursed-trips-container');
-
-  const activeTrips = trips.filter(trip => trip.status === 'active');
-  const submittedTrips = trips.filter(trip => trip.status === 'submitted');
-  const reimbursedTrips = trips.filter(trip => trip.status === 'reimbursed');
-
-  if (trips.length === 0) {
-    activeTripsContainer.innerHTML = '<p class="text-center text-muted mt-5">No trips yet. Add one to get started</p>';
-  } else {
-    if (activeTrips.length === 0) {
-      activeTripsContainer.innerHTML = '<p class="text-center text-muted">No active trips</p>';
-    } else {
-      activeTrips.forEach(trip => {
-        const tripElement = document.createElement('div');
-        const isSelected = trip.id === selectedTripId;
-
-        tripElement.className = `card mb-3 ${isSelected ? 'text-white btn-custom-blue' : ''}`;
-        tripElement.innerHTML = `
-          <div class="card-body">
-            <h5 class="card-title">${trip.name}</h5>
-          </div>
-        `;
-
-        tripElement.dataset.tripId = trip.id; // Add tripId to dataset
-
-        tripElement.addEventListener('click', () => selectTrip(trip.id));
-        tripElement.addEventListener('dblclick', () => renderTripDetail(trip.id));
-        
-        activeTripsContainer.appendChild(tripElement);
-      });
-    }
-
-    if (submittedTrips.length === 0) {
-      submittedTripsContainer.innerHTML = '<p class="text-center text-muted">No submitted trips</p>';
-    } else {
-      submittedTrips.forEach(trip => {
-        const tripElement = document.createElement('div');
-        const isSelected = trip.id === selectedTripId;
-
-        tripElement.className = `card mb-3 ${isSelected ? 'text-white btn-custom-blue' : ''}`;
-        tripElement.innerHTML = `
-          <div class="card-body">
-            <h5 class="card-title">${trip.name}</h5>
-          </div>
-        `;
-        tripElement.dataset.tripId = trip.id; // Add tripId to dataset
-
-        tripElement.addEventListener('click', () => selectTrip(trip.id));
-        tripElement.addEventListener('dblclick', () => renderTripDetail(trip.id));
-        
-        submittedTripsContainer.appendChild(tripElement);
-      });
-    }
-
-    if (reimbursedTrips.length === 0) {
-      reimbursedTripsContainer.innerHTML = '<p class="text-center text-muted">No reimbursed trips</p>';
-    } else {
-      reimbursedTrips.forEach(trip => {
-        const tripElement = document.createElement('div');
-        const isSelected = trip.id === selectedTripId;
-
-        tripElement.className = `card mb-3 ${isSelected ? 'text-white btn-custom-blue' : ''}`;
-        tripElement.innerHTML = `
-          <div class="card-body">
-            <h5 class="card-title">${trip.name}</h5>
-          </div>
-        `;
-        tripElement.dataset.tripId = trip.id; // Add tripId to dataset
-
-        tripElement.addEventListener('click', () => selectTrip(trip.id));
-        tripElement.addEventListener('dblclick', () => renderTripDetail(trip.id));
-        
-        reimbursedTripsContainer.appendChild(tripElement);
-      });
-    }
-  }
-
-  const containers = [activeTripsContainer, submittedTripsContainer, reimbursedTripsContainer];
-  containers.forEach(container => {
-    new Sortable(container, {
-      group: 'shared',
-      animation: 150,
-      ghostClass: 'ghost-card',
-      onEnd: async (evt) => {
-        const tripId = evt.item.dataset.tripId;
-        let newStatus = evt.to.id.replace('-trips-container', '');
-        // The containers are active, submitted, reimbursed. So the new status should be active, submitted, or reimbursed.
-        if (newStatus === 'active') {
-          newStatus = 'active';
-        } else if (newStatus === 'submitted') {
-          newStatus = 'submitted';
-        } else if (newStatus === 'reimbursed') {
-          newStatus = 'reimbursed';
-        }
-        await updateTripStatus(tripId, newStatus);
-        await renderTrips(); // Re-render to update 'No trips' messages
-      }
-    });
+  document.getElementById('back-to-trips').addEventListener('click', renderTrips);
+  document.getElementById('reset-cat-colors').addEventListener('click', async () => {
+    await saveCategoryColors({});
+    renderSettingsPage();
   });
+  document.getElementById('save-cat-colors').addEventListener('click', async () => {
+    const inputs = Array.from(document.querySelectorAll('#category-color-list input[type="color"]'));
+    const map = {};
+    inputs.forEach(inp => { map[inp.name] = inp.value; });
+    await saveCategoryColors(map);
+    alert('Category colors saved');
+  });
+}
 
-  // Event Listeners for Trip List page
-  const form = document.getElementById('add-trip-form');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const tripName = document.getElementById('trip-name').value.trim();
-    if (!tripName) {
-      showToast('Trip name cannot be empty!');
+async function clearAppCache() {
+  const proceed = confirm('Clear cached assets and unregister Service Worker? You may need to hard reload after this.');
+  if (!proceed) return;
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    alert('Cache cleared and Service Workers unregistered. Please hard reload (Option + Command + R).');
+  } catch (e) {
+    console.error('Failed to clear app cache:', e);
+    alert('Failed to clear app cache. Check the console for details.');
+  }
+}
+
+function buildTripCard(trip, isSelected) {
+  const card = document.createElement('div');
+  card.className = `card mb-3 trip-card card-uniform-height ${isSelected ? 'text-white btn-custom-blue' : ''}`;
+  card.dataset.tripId = trip.id;
+  card.innerHTML = `
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">${escapeHTML(trip.name)}</h5>
+    </div>
+  `;
+  card.addEventListener('click', (e) => {
+    if (e.detail >= 2) {
+      renderTripDetail(trip.id);
+    } else {
+      selectTrip(trip.id);
+    }
+  });
+  return card;
+}
+
+function buildAddTripShadowCard() {
+  const card = document.createElement('div');
+  card.className = 'card mb-3 add-trip-card card-uniform-height';
+  card.id = 'add-trip-card';
+
+  let editing = false;
+
+  const renderShadow = () => {
+    editing = false;
+    card.classList.remove('editing');
+    card.innerHTML = `
+      <div class="card-body edit-row w-100">
+        <input type="text" class="form-control" value="Trip" aria-label="Trip name" readonly 
+               style="color: var(--light-grey) !important; -webkit-text-fill-color: var(--light-grey) !important; border: 2px dashed var(--light-grey) !important; background-color: #ffffff !important;">
+        <button class="btn btn-dashed-blue btn-equal" id="add-new-trip">Add</button>
+      </div>
+    `;
+    const startEdit = () => { if (!editing) { editing = true; renderEditor(); } };
+    card.querySelectorAll('input, button').forEach(el => el.addEventListener('click', startEdit));
+  };
+
+  const renderEditor = () => {
+    card.classList.add('editing');
+    card.innerHTML = `
+      <div class="card-body edit-row w-100">
+        <input type="text" class="form-control" aria-label="Trip name" id="new-trip-name">
+        <button class="btn btn-custom-blue btn-equal" id="save-new-trip">Save</button>
+      </div>
+    `;
+    const input = card.querySelector('#new-trip-name');
+    const saveBtn = card.querySelector('#save-new-trip');
+    if (input) { input.value = ''; input.focus(); }
+
+    const onDocClick = (ev) => {
+      if (!(ev.target instanceof Node) || !card.contains(ev.target)) {
+        document.removeEventListener('click', onDocClick, true);
+        renderShadow();
+      }
+    };
+    document.addEventListener('click', onDocClick, true);
+
+    const save = async () => {
+      const name = (input?.value || '').trim();
+      if (!name) {
+        input?.focus();
+        input?.classList.add('is-invalid');
+        return;
+      }
+      document.removeEventListener('click', onDocClick, true);
+      // Determine next position at the end of Active column
+      let position = 0;
+      try {
+        const all = await getAllTrips(true);
+        const actives = all.filter(t => t.status === 'active');
+        const maxPos = Math.max(-1, ...actives.map(t => Number.isFinite(t.position) ? t.position : -1));
+        position = (maxPos >= 0 ? maxPos + 1 : actives.length);
+      } catch {}
+      const newTrip = { id: Date.now().toString(), name, status: 'active', position, createdAt: new Date().toISOString() };
+      await saveTrip(newTrip);
+      await renderTripLists();
+    };
+
+    saveBtn.addEventListener('click', save);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') save();
+      if (e.key === 'Escape') renderShadow();
+    });
+  };
+
+  renderShadow();
+  return card;
+}
+
+async function renderTripLists(selectedTripId = null) {
+  dbg('renderTripLists:start', { selectedTripId });
+  const trips = await getAllTrips();
+  let active = document.getElementById('active-trips-container');
+  let submitted = document.getElementById('submitted-trips-container');
+  let reimbursed = document.getElementById('reimbursed-trips-container');
+  if (!active || !submitted || !reimbursed) {
+    console.warn('[UI] Trip containers missing; re-rendering shell');
+    await renderShell();
+    active = document.getElementById('active-trips-container');
+    submitted = document.getElementById('submitted-trips-container');
+    reimbursed = document.getElementById('reimbursed-trips-container');
+    if (!active || !submitted || !reimbursed) {
+      console.error('[UI] Trip containers still missing after shell render');
       return;
     }
-    const newTrip = {
-      id: Date.now().toString(),
-      name: tripName,
-      status: 'active'
-    };
-    await saveTrip(newTrip);
-    form.reset();
-    const modalElement = document.getElementById('add-trip-modal');
-    const modal = new bootstrap.Modal(modalElement);
-    modal.hide();
-    await renderTrips(); // Re-render the list
-    showToast('Trip saved successfully!');
-  });
-
-  // Initialize Bootstrap modal after it's added to the DOM
-  const addTripModalElement = document.getElementById('add-trip-modal');
-  if (addTripModalElement) {
-    new bootstrap.Modal(addTripModalElement, { backdrop: 'static', keyboard: false });
   }
 
-  document.addEventListener('click', (e) => {
-    const tripListContainer = document.getElementById('trip-list-container');
-    if (tripListContainer && !tripListContainer.contains(e.target)) {
-      renderTrips();
+  active.innerHTML = '';
+  submitted.innerHTML = '';
+  reimbursed.innerHTML = '';
+
+  const addCard = buildAddTripShadowCard();
+  active.appendChild(addCard);
+
+  const byPos = (a, b) => {
+    const ap = Number.isFinite(a.position) ? a.position : Number.POSITIVE_INFINITY;
+    const bp = Number.isFinite(b.position) ? b.position : Number.POSITIVE_INFINITY;
+    if (ap !== bp) return ap - bp;
+    const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return ad - bd;
+  };
+
+  const activeTrips = trips.filter(t => t.status === 'active').sort(byPos);
+  activeTrips.forEach(trip => active.appendChild(buildTripCard(trip, trip.id === selectedTripId)));
+
+  const submittedTrips = trips.filter(t => t.status === 'submitted').sort(byPos);
+  if (submittedTrips.length > 0) {
+    submittedTrips.forEach(trip => submitted.appendChild(buildTripCard(trip, trip.id === selectedTripId)));
+  } else {
+    submitted.innerHTML = '<p class="text-center text-placeholder">No submitted trips</p>';
+  }
+
+  const reimbursedTrips = trips.filter(t => t.status === 'reimbursed').sort(byPos);
+  if (reimbursedTrips.length > 0) {
+    reimbursedTrips.forEach(trip => reimbursed.appendChild(buildTripCard(trip, trip.id === selectedTripId)));
+  } else {
+    reimbursed.innerHTML = '<p class="text-center text-placeholder">No reimbursed trips</p>';
+  }
+
+  [active, submitted, reimbursed].forEach(container => {
+    try {
+      new Sortable(container, {
+        group: 'shared',
+        animation: 150,
+        ghostClass: 'ghost-card',
+        draggable: '.trip-card',
+        filter: '.add-trip-card',
+        onEnd: async () => {
+          await syncTripOrderFromDOM();
+          await renderTripLists();
+        }
+      });
+    } catch (e) {
+      console.error('[UI] Failed to init Sortable for container', container?.id, e);
     }
   });
+}
+
+async function syncTripOrderFromDOM() {
+  const containers = [
+    { id: 'active-trips-container', status: 'active' },
+    { id: 'submitted-trips-container', status: 'submitted' },
+    { id: 'reimbursed-trips-container', status: 'reimbursed' }
+  ];
+  for (const { id, status } of containers) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const items = Array.from(el.querySelectorAll('.trip-card'));
+    for (let i = 0; i < items.length; i++) {
+      const tripId = items[i].dataset.tripId;
+      const trip = await getTripById(tripId);
+      if (!trip) continue;
+      trip.status = status;
+      trip.position = i;
+      await saveTrip(trip);
+    }
+  }
+}
+
+async function renderTrips(selectedTripId = null) {
+  // Clean up any expense deselect handler when leaving expense view
+  if (expenseDeselectHandler) {
+    document.removeEventListener('click', expenseDeselectHandler, true);
+    expenseDeselectHandler = null;
+  }
+  if (!document.getElementById('trip-list-container')) {
+    await renderShell();
+  }
+  await renderTripLists(selectedTripId);
 }
 
 async function renderTripDetail(tripId) {
   const trip = await getTripById(tripId);
-  const expenses = await getExpensesByTripId(tripId);
   const app = document.getElementById('app');
 
   app.innerHTML = `
     <div class="container mt-4">
-      <div class="card bg-success text-white">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <button id="back-to-trips" class="btn text-white btn-no-style"><i class="bi bi-house-door-fill home-icon"></i></button>
-          <h1>${trip.name}</h1>
-          <div></div>
+      <div class="card card-uniform-height text-white btn-custom-green">
+        <div class="card-header d-flex justify-content-center align-items-center" style="position: relative;">
+          <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi bi-house-door-fill home-icon"></i></button>
+          <h1 class="h4 header-title mb-0">${escapeHTML(trip.name)}</h1>
+          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi bi-gear-fill home-icon"></i></button>
         </div>
       </div>
+      <main id="expense-list-container" class="mt-4" data-trip-id="${tripId}"></main>
+    </div>
+  `;
 
-      <main id="expense-list-container" class="mt-4">
-        <!-- Expenses will be rendered here -->
-      </main>
+  await renderExpenseList(tripId);
+  document.getElementById('back-to-trips').addEventListener('click', renderTrips);
+  document.getElementById('settings-btn').addEventListener('click', renderSettingsPage);
+}
 
-      <button id="add-expense-fab" type="button" class="btn btn-success btn-lg rounded-circle position-fixed bottom-0 end-0 m-3" data-bs-toggle="modal" data-bs-target="#add-expense-modal">
-        +
-      </button>
+const DEFAULT_CATEGORY_COLORS = {
+  'Breakfast': '#f59e0b',
+  'Lunch': '#22c55e',
+  'Dinner': '#ef4444',
+  'Accommodation': '#3b82f6',
+  'Taxi': '#6b7280',
+  'Train': '#8b5cf6',
+  'Flight': '#0ea5e9',
+  'Baggage': '#a16207',
+  'Miscellaneous': '#14b8a6',
+  'Other': '#64748b'
+};
 
-      <!-- Add Expense Modal -->
-      <div class="modal fade" id="add-expense-modal" tabindex="-1" aria-labelledby="addExpenseModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="addExpenseModalLabel">Add New Expense</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-              <form id="add-expense-form">
-                <input type="hidden" id="expense-id" name="expenseId">
-                <div class="mb-3">
-                  <label for="expense-description" class="form-label">Description</label>
-                  <input type="text" class="form-control" id="expense-description" name="description" required>
-                </div>
-                <div class="mb-3">
-                  <label for="expense-amount" class="form-label">Amount (£)</label>
-                  <input type="number" class="form-control" id="expense-amount" name="amount" required step="0.01">
-                </div>
-                <div class="mb-3">
-                  <label for="expense-date" class="form-label">Date</label>
-                  <input type="date" class="form-control" id="expense-date" name="date" required>
-                </div>
-                <div class="mb-3">
-                  <label for="expense-category" class="form-label">Category</label>
-                  <select class="form-select" id="expense-category" name="category">
-                    <option>Food</option>
-                    <option>Transport</option>
-                    <option>Accommodation</option>
-                    <option>Activities</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label for="expense-notes" class="form-label">Notes</label>
-                  <textarea class="form-control" id="expense-notes" name="notes" rows="3"></textarea>
-                </div>
-              </form>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" form="add-expense-form" class="btn btn-success" id="save-expense-btn">Save Expense</button>
-            </div>
-          </div>
-        </div>
+async function loadCategoryColorMap() {
+  const saved = await (typeof getCategoryColors === 'function' ? getCategoryColors() : Promise.resolve({}));
+  return { ...DEFAULT_CATEGORY_COLORS, ...(saved || {}) };
+}
+
+async function colorizeCategorySelect(selectEl) {
+  if (!selectEl) return;
+  const map = await loadCategoryColorMap();
+  Array.from(selectEl.options).forEach(opt => {
+    const name = opt.value || opt.textContent;
+    const color = map[name];
+    if (color) {
+      opt.style.backgroundColor = color;
+      opt.style.color = '#fff';
+    }
+  });
+}
+
+function buildExpenseCard(expense, isSelected) {
+  const card = document.createElement('div');
+  card.className = `card mb-3 card-uniform-height expense-card ${isSelected ? 'expense-card--selected' : ''}`;
+  card.dataset.expenseId = expense.id;
+  const expenseDate = new Date(expense.date);
+  const dateOptions = { day: '2-digit', month: 'short', year: '2-digit' };
+  const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
+  const displayDateOnly = expenseDate.toLocaleDateString('en-GB', dateOptions);
+  const displayTimeOnly = expenseDate.toLocaleTimeString('en-GB', timeOptions);
+
+  card.innerHTML = `
+    <div class="card-body expense-grid">
+      <div class="col-left">
+        <p class="expense-description">${escapeHTML(expense.description)}</p>
+        <span class="badge expense-category-pill">${escapeHTML(expense.category)}</span>
+      </div>
+      <div class="col-datetime">
+        <small class="expense-date text-muted">${displayDateOnly}</small>
+        <small class="expense-time text-muted">${displayTimeOnly}</small>
+      </div>
+      <div class="col-amount text-end">
+        <p class="fw-bold mb-0">${escapeHTML(expense.currency)}${Number(expense.amount).toFixed(2)}</p>
+      </div>
+      <div class="col-icon text-end" aria-hidden="true">
+        <i class="bi bi-receipt expense-receipt-icon"></i>
       </div>
     </div>
   `;
 
-  const expenseListContainer = document.getElementById('expense-list-container');
-  if (expenses.length === 0) {
-    expenseListContainer.innerHTML = '<p class="text-center text-muted mt-5">No expenses recorded for this trip yet.</p>';
-  } else {
-    expenses.forEach(expense => {
-      const expenseCard = document.createElement('div');
-      expenseCard.className = 'card mb-3';
-      expenseCard.innerHTML = `
-        <div class="card-body d-flex justify-content-between align-items-center">
-          <div>
-            <h5>${expense.description}</h5>
-            <p><small class="text-muted">${expense.category} - ${new Date(expense.date).toLocaleDateString()}</small></p>
-          </div>
-          <div class="d-flex align-items-center">
-            <p class="fs-5 fw-bold mb-0 me-3">£${expense.amount.toFixed(2)}</p>
-            <button class="btn btn-sm btn-outline-primary edit-expense-btn" data-expense-id="${expense.id}" data-bs-toggle="modal" data-bs-target="#add-expense-modal">
-              <i class="bi bi-pencil"></i>
-            </button>
-          </div>
-        </div>
-      `;
-      expenseListContainer.appendChild(expenseCard);
-    });
-
-    // Add event listeners for edit buttons
-    document.querySelectorAll('.edit-expense-btn').forEach(button => {
-      button.addEventListener('click', async (e) => {
-        const expenseId = e.currentTarget.dataset.expenseId;
-        const expenseToEdit = expenses.find(exp => exp.id === expenseId);
-        if (expenseToEdit) {
-          document.getElementById('expense-id').value = expenseToEdit.id;
-          document.getElementById('expense-description').value = expenseToEdit.description;
-          document.getElementById('expense-amount').value = expenseToEdit.amount;
-          document.getElementById('expense-date').value = expenseToEdit.date;
-          document.getElementById('expense-category').value = expenseToEdit.category;
-          document.getElementById('expense-notes').value = expenseToEdit.notes;
-
-          document.getElementById('addExpenseModalLabel').textContent = 'Edit Expense';
-          document.getElementById('save-expense-btn').textContent = 'Update Expense';
-        }
-      });
-    });
-  }
-
-  // Event Listeners for Detail View
-  document.getElementById('back-to-trips').addEventListener('click', renderTrips);
-  
-  const form = document.getElementById('add-expense-form');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const expenseId = document.getElementById('expense-id').value;
-    const description = document.getElementById('expense-description').value;
-    const amount = parseFloat(document.getElementById('expense-amount').value);
-    const date = document.getElementById('expense-date').value;
-    const category = document.getElementById('expense-category').value;
-    const notes = document.getElementById('expense-notes').value;
-    
-    const expense = {
-      id: expenseId || Date.now().toString(), // Use existing ID or generate new
-      tripId: tripId,
-      description: description,
-      amount: amount,
-      date: date,
-      category: category,
-      notes: notes
-    };
-
-    await saveExpense(expense);
-    form.reset();
-    const modal = bootstrap.Modal.getInstance(document.getElementById('add-expense-modal'));
-    modal.hide();
-    await renderTripDetail(tripId); // Re-render the detail view
-    showToast(expenseId ? 'Expense updated successfully!' : 'Expense saved successfully!');
+  // Apply category color
+  queueMicrotask(async () => {
+    try {
+      const map = await loadCategoryColorMap();
+      const color = map[expense.category] || DEFAULT_CATEGORY_COLORS['Other'];
+      const pill = card.querySelector('.expense-category-pill');
+      if (pill) {
+        pill.style.backgroundColor = color;
+        pill.style.color = '#ffffff';
+      }
+    } catch (e) {
+      console.warn('Failed to apply category color', e);
+    }
   });
+  
+  card.addEventListener('click', async (e) => {
+    if (e.detail >= 2) {
+      await selectExpense(expense.id);
+      const fresh = document.querySelector(`[data-expense-id="${expense.id}"]`);
+      if (fresh) startEditExpense(fresh, expense);
+    } else {
+      selectExpense(expense.id);
+    }
+  });
+  return card;
+}
 
-  // Reset modal when hidden
-  const addExpenseModal = document.getElementById('add-expense-modal');
-  addExpenseModal.addEventListener('hidden.bs.modal', () => {
-    form.reset();
-    document.getElementById('expense-id').value = ''; // Clear hidden ID
-    document.getElementById('addExpenseModalLabel').textContent = 'Add New Expense';
-    document.getElementById('save-expense-btn').textContent = 'Save Expense';
+function startEditExpense(card, expense) {
+  const cardBody = card.querySelector('.card-body');
+  const hadUniform = card.classList.contains('card-uniform-height');
+  if (hadUniform) card.classList.remove('card-uniform-height');
+  const originalContent = cardBody.innerHTML;
+
+  cardBody.innerHTML = `
+    <div class="d-flex flex-column gap-2 w-100">
+      <input type="text" class="form-control" placeholder="Vendor" aria-label="Description" id="exp-desc-edit" value="${escapeHTML(expense.description)}">
+      <div class="grid-2-col">
+        <select class="form-select" aria-label="Currency" id="exp-currency-edit">
+          <option>£</option>
+          <option>$</option>
+          <option>€</option>
+          <option>zł</option>
+        </select>
+        <input type="number" class="form-control" placeholder="0.00" step="0.01" aria-label="Amount" id="exp-amount-edit" value="${expense.amount}">
+      </div>
+      <div class="grid-2-col">
+        <input type="date" class="form-control" aria-label="Date" id="exp-date-edit" value="${expense.date.slice(0,10)}">
+        <input type="time" class="form-control" aria-label="Time" id="exp-time-edit" value="${expense.date.slice(11,16)}">
+      </div>
+      <div id="category-wrapper-edit">
+        <select class="form-select" aria-label="Category" id="exp-cat-edit">
+          <option>Breakfast</option>
+          <option>Lunch</option>
+          <option>Dinner</option>
+          <option>Accommodation</option>
+          <option>Taxi</option>
+          <option>Train</option>
+          <option>Flight</option>
+          <option>Baggage</option>
+          <option>Miscellaneous</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <textarea class="form-control single-line-notes" rows="1" placeholder="Notes" id="exp-notes-edit">${escapeHTML(expense.notes)}</textarea>
+      <button class="btn btn-custom-green w-100 btn-uniform-height" id="save-expense-edit">Save</button>
+    </div>
+  `;
+
+  const currencySelect = card.querySelector('#exp-currency-edit');
+  currencySelect.value = expense.currency;
+  const categorySelect = card.querySelector('#exp-cat-edit');
+  categorySelect.value = expense.category;
+
+  const onDocClick = (ev) => {
+    if (!(ev.target instanceof Node) || !card.contains(ev.target)) {
+      document.removeEventListener('click', onDocClick, true);
+      // Restore original structure to keep alignment classes
+      cardBody.innerHTML = originalContent;
+      if (hadUniform) card.classList.add('card-uniform-height');
+    }
+  };
+  document.addEventListener('click', onDocClick, true);
+
+  // Colorize category dropdown options in edit mode
+  colorizeCategorySelect(card.querySelector('#exp-cat-edit'));
+
+  const saveBtn = card.querySelector('#save-expense-edit');
+  saveBtn.addEventListener('click', async () => {
+    document.removeEventListener('click', onDocClick, true);
+    const updatedExpense = { ...expense };
+    updatedExpense.description = card.querySelector('#exp-desc-edit').value;
+    updatedExpense.currency = card.querySelector('#exp-currency-edit').value;
+    updatedExpense.amount = parseFloat(card.querySelector('#exp-amount-edit').value);
+    const date = card.querySelector('#exp-date-edit').value;
+    const time = card.querySelector('#exp-time-edit').value;
+    updatedExpense.date = `${date}T${time || '00:00'}`;
+    updatedExpense.category = card.querySelector('#exp-cat-edit').value;
+    updatedExpense.notes = card.querySelector('#exp-notes-edit').value;
+
+    await saveExpense(updatedExpense);
+    await renderExpenseList(expense.tripId, expense.id);
   });
 }
 
+function buildAddExpenseShadowCard(tripId) {
+  const card = document.createElement('div');
+  card.className = 'card mb-3 add-expense-card';
+  card.id = 'add-expense-card';
+
+  let editing = false;
+
+  const renderShadow = () => {
+    editing = false;
+    card.classList.remove('editing');
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const currentTime = now.toTimeString().slice(0, 5);
+
+    card.innerHTML = `
+      <div class="card-body">
+        <div class="d-flex flex-column gap-2">
+          <input type="text" class="form-control shadow-input" value="Vendor" readonly aria-label="Description">
+          <div class="grid-2-col">
+            <select class="form-select shadow-input" readonly aria-label="Currency">
+              <option>CUR</option>
+            </select>
+            <input type="number" class="form-control shadow-input" value="0.00" readonly aria-label="Amount">
+          </div>
+          <div class="grid-2-col">
+            <input type="date" class="form-control shadow-input" value="${today}" readonly aria-label="Date">
+            <input type="time" class="form-control shadow-input" value="${currentTime}" readonly aria-label="Time">
+          </div>
+          <select class="form-select shadow-input" readonly aria-label="Category">
+            <option>Category</option>
+          </select>
+          <textarea class="form-control single-line-notes shadow-input" rows="1" placeholder="Notes" readonly aria-label="Notes"></textarea>
+          <button class="btn btn-dashed-green w-100" id="add-expense">Add</button>
+        </div>
+      </div>
+    `;
+    const triggerEdit = () => { if (!editing) { editing = true; renderEditor(); } };
+    card.querySelectorAll('input[readonly], select[readonly], textarea[readonly]').forEach(el => {
+      el.addEventListener('click', triggerEdit);
+      el.addEventListener('focus', triggerEdit);
+    });
+    card.querySelector('#add-expense')?.addEventListener('click', triggerEdit);
+  };
+
+  const renderEditor = () => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const currentTime = now.toTimeString().slice(0, 5);
+    card.classList.add('editing');
+    card.innerHTML = `
+      <div class="card-body">
+        <div class="d-flex flex-column gap-2">
+          <input type="text" class="form-control" placeholder="Vendor" aria-label="Description" id="exp-desc">
+          <div class="grid-2-col">
+            <select class="form-select" aria-label="Currency" id="exp-currency">
+              <option selected disabled hidden>CUR</option>
+              <option>£</option>
+              <option>$</option>
+              <option>€</option>
+              <option>zł</option>
+            </select>
+            <input type="number" class="form-control" placeholder="0.00" step="0.01" aria-label="Amount" id="exp-amount">
+          </div>
+          <div class="grid-2-col">
+            <input type="date" class="form-control is-default" value="${today}" aria-label="Date" id="exp-date">
+            <input type="time" class="form-control is-default" value="${currentTime}" aria-label="Time" id="exp-time">
+          </div>
+          <div id="category-wrapper">
+            <select class="form-select" aria-label="Category" id="exp-cat">
+              <option selected disabled hidden>Category</option>
+              <option>Breakfast</option>
+              <option>Lunch</option>
+              <option>Dinner</option>
+              <option>Accommodation</option>
+              <option>Taxi</option>
+              <option>Train</option>
+              <option>Flight</option>
+              <option>Baggage</option>
+              <option>Miscellaneous</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <textarea class="form-control single-line-notes" rows="1" placeholder="Notes" id="exp-notes"></textarea>
+          <button class="btn btn-custom-green w-100 btn-uniform-height" id="save-expense">Save</button>
+        </div>
+      </div>
+    `;
+    const saveBtn = card.querySelector('#save-expense');
+    const desc = card.querySelector('#exp-desc');
+    const currency = card.querySelector('#exp-currency');
+    const amount = card.querySelector('#exp-amount');
+    const date = card.querySelector('#exp-date');
+    const time = card.querySelector('#exp-time');
+    const categoryWrapper = card.querySelector('#category-wrapper');
+    const notes = card.querySelector('#exp-notes');
+    
+    desc?.focus();
+
+    const onDocClick = (ev) => {
+      if (!(ev.target instanceof Node) || !card.contains(ev.target)) {
+        document.removeEventListener('click', onDocClick, true);
+        renderShadow();
+      }
+    };
+    document.addEventListener('click', onDocClick, true);
+
+    const currencySelect = card.querySelector('#exp-currency');
+    const catSelect = card.querySelector('#exp-cat');
+    currencySelect.classList.add('is-placeholder');
+    catSelect.classList.add('is-placeholder');
+    currencySelect.addEventListener('change', () => currencySelect.classList.remove('is-placeholder'));
+
+    date.addEventListener('input', () => date.classList.remove('is-default'), { once: true });
+    time.addEventListener('input', () => time.classList.remove('is-default'), { once: true });
+
+    categoryWrapper.addEventListener('change', (e) => {
+      if (e.target.id === 'exp-cat') {
+        e.target.classList.remove('is-placeholder');
+        if (e.target.value === 'Other') {
+          const textInput = document.createElement('input');
+          textInput.type = 'text';
+          textInput.className = 'form-control';
+          textInput.placeholder = 'Specify category';
+          textInput.id = 'exp-cat-other';
+          categoryWrapper.innerHTML = '';
+          categoryWrapper.appendChild(textInput);
+          textInput.focus();
+        }
+      }
+    });
+
+    if (notes) {
+      const initialHeight = parseInt(getComputedStyle(notes).height, 10);
+      const autoSize = () => {
+        notes.style.height = 'auto';
+        const newHeight = Math.max(initialHeight, notes.scrollHeight);
+        notes.style.height = `${newHeight}px`;
+      };
+      notes.addEventListener('input', autoSize);
+    }
+
+    // Colorize category dropdown options
+    colorizeCategorySelect(card.querySelector('#exp-cat'));
+
+    const save = async () => {
+      document.removeEventListener('click', onDocClick, true);
+      const catSelect = categoryWrapper.querySelector('#exp-cat');
+      const catOtherInput = categoryWrapper.querySelector('#exp-cat-other');
+      let categoryValue = catSelect ? catSelect.value : (catOtherInput ? catOtherInput.value.trim() || 'Other' : '');
+
+      let isValid = true;
+      [desc, currency, amount, date].forEach(field => {
+        if (!field.value || field.value === 'CUR') {
+          field.classList.add('is-invalid');
+          isValid = false;
+        } else {
+          field.classList.remove('is-invalid');
+        }
+      });
+      if (!categoryValue || categoryValue === 'Category') {
+        (catSelect || catOtherInput)?.classList.add('is-invalid');
+        isValid = false;
+      } else {
+        (catSelect || catOtherInput)?.classList.remove('is-invalid');
+      }
+      if (!isValid) {
+        document.addEventListener('click', onDocClick, true);
+        return;
+      }
+
+      const expense = {
+        id: Date.now().toString(),
+        tripId,
+        description: desc.value,
+        currency: currency.value,
+        amount: parseFloat(amount.value),
+        date: `${date.value}T${time.value || '00:00'}`,
+        category: categoryValue,
+        notes: notes?.value?.trim() || '',
+        createdAt: new Date().toISOString()
+      };
+      await saveExpense(expense);
+      await renderExpenseList(tripId);
+    };
+
+    saveBtn.addEventListener('click', save);
+  };
+
+  renderShadow();
+  return card;
+}
+
+let currentSelectedExpenseId = null;
+let expenseDeselectHandler = null;
+
+async function renderExpenseList(tripId, selectedExpenseId = null) {
+  currentSelectedExpenseId = selectedExpenseId;
+  const container = document.getElementById('expense-list-container');
+  if (!container) return;
+  container.dataset.tripId = tripId;
+  container.innerHTML = '';
+
+  container.appendChild(buildAddExpenseShadowCard(tripId));
+
+  const expenses = await getExpensesByTripId(tripId);
+  if (!expenses.length) {
+    // Ensure deselect handler still installed even with empty list
+    if (expenseDeselectHandler) document.removeEventListener('click', expenseDeselectHandler, true);
+    expenseDeselectHandler = (ev) => {
+      const inContainer = ev.target instanceof Node && container.contains(ev.target);
+      const inExpenseCard = inContainer && ev.target.closest('[data-expense-id]');
+      const inEditor = inContainer && ev.target.closest('#add-expense-card');
+      if (currentSelectedExpenseId && (!inContainer || (!inExpenseCard && !inEditor))) {
+        currentSelectedExpenseId = null;
+        renderExpenseList(tripId, null);
+      }
+    };
+    document.addEventListener('click', expenseDeselectHandler, true);
+    return;
+  }
+  expenses.forEach(exp => container.appendChild(buildExpenseCard(exp, exp.id === currentSelectedExpenseId)));
+
+  // Install outside-click deselect handler
+  if (expenseDeselectHandler) document.removeEventListener('click', expenseDeselectHandler, true);
+  expenseDeselectHandler = (ev) => {
+    const inContainer = ev.target instanceof Node && container.contains(ev.target);
+    const inExpenseCard = inContainer && ev.target.closest('[data-expense-id]');
+    const inEditor = inContainer && ev.target.closest('#add-expense-card');
+    if (currentSelectedExpenseId && (!inContainer || (!inExpenseCard && !inEditor))) {
+      currentSelectedExpenseId = null;
+      renderExpenseList(tripId, null);
+    }
+  };
+  document.addEventListener('click', expenseDeselectHandler, true);
+}
+
+async function selectExpense(expenseId) {
+  const card = document.querySelector(`[data-expense-id="${expenseId}"]`);
+  if (!card) return;
+  const container = card.closest('#expense-list-container');
+  if (!container) return;
+  const tripId = container.dataset.tripId;
+  await renderExpenseList(tripId, expenseId);
+}
+
 function selectTrip(tripId) {
+  // Clean up any expense deselect handler when leaving expense view
+  if (expenseDeselectHandler) {
+    document.removeEventListener('click', expenseDeselectHandler, true);
+    expenseDeselectHandler = null;
+  }
   renderTrips(tripId);
+}
+
+function escapeHTML(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getModalInstance(modalId) {
+  const modalElement = document.getElementById(modalId);
+  if (modalElement) {
+    return bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+  }
+  return null;
+}
+
+function hideModal(modalId) {
+  const modal = getModalInstance(modalId);
+  if (modal) {
+    modal.hide();
+  }
 }

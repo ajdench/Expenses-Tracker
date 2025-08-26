@@ -3,7 +3,7 @@
 
 ## 🧠 Human-Readable Summary
 
-This is a production-ready offline-first Progressive Web App (PWA) that allows users to track and manage expenses related to trips. The app uses IndexedDB for local storage, includes a PWA manifest, service worker for offline support, and a minimal responsive UI using Tailwind. It does **not require an offline fallback page** — all functions continue working offline via local browser cache and IndexedDB.
+This is a production-ready offline-first Progressive Web App (PWA) that allows users to track and manage expenses related to trips. The app uses IndexedDB for local storage, includes a PWA manifest, service worker for offline support, and a responsive UI using Bootstrap 5 (with a small amount of custom CSS). It does **not require an offline fallback page** — all functions continue working offline via local browser cache and IndexedDB.
 
 ---
 
@@ -12,7 +12,7 @@ This is a production-ready offline-first Progressive Web App (PWA) that allows u
 | File | Description |
 |------|-------------|
 | `index.html` | Main app layout, now includes `register-sw.js` for service worker registration |
-| `styles.css` | Placeholder for Tailwind CSS directives |
+| `styles.css` | Custom Bootstrap overrides and small utility styles |
 | `app.js` | App bootstrap logic and toast notifications |
 | `ui.js` | Renders trip and expense views from local DB |
 | `db.js` | IndexedDB abstraction layer using idb-like pattern |
@@ -31,11 +31,11 @@ This is a production-ready offline-first Progressive Web App (PWA) that allows u
 | Archive logic (soft delete) | (Supported structure, UI coming in next iteration) |
 | Export/Import backup | `app.js` (stub to extend) |
 | Toast UX feedback | `app.js`, `index.html` |
-| Tailwind-ready styling | `styles.css` |
+| Bootstrap-based styling | `styles.css`, `index.html` |
 | PWA manifest | `manifest.json` |
 | Offline-first caching | `service-worker.js` |
 | PWA installability | `manifest.json`, `register-sw.js`, `index.html` |
-| Mobile responsiveness | (Tailwind via `styles.css`) |
+| Mobile responsiveness | (Bootstrap via `styles.css`) |
 
 ---
 

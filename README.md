@@ -18,44 +18,45 @@ This is a production-ready offline-first Progressive Web App (PWA) for tracking 
 *   **Custom Styling:** Enhanced visual consistency with custom blue theme (`#1663bb`), unified title card sizing, and refined home icon styling.
 *   **Global Padding:** Consistent 16px horizontal padding across the main container for improved aesthetics.
 
-## Building and Running
+## Local Development
 
-This project now includes a simple build script to manage environment-specific configurations (like the base URL for GitHub Pages).
+Serve the static files from the repo root (no build step required):
 
-**1. Prepare for local development or deployment:**
+```bash
+npm start            # runs npx serve on port 3000
+# or
+npx serve -l 3000
+# or
+python3 -m http.server 3000
+```
 
-*   **For local development:**
-    ```bash
-    npm run build:local
-    ```
-*   **For GitHub Pages deployment:**
-    ```bash
-    npm run build:deploy
-    ```
+Open: `http://localhost:3000/index.html?v=dev&nosw`
 
-**2. Serve the project directory (for local development):**
+Notes
+- Service Worker is disabled during development and Pages deploys (see `register-sw.js`).
+- Data persists in the browser via IndexedDB (`ExpenseTracker`).
 
-After running `npm run build:local`, you can serve the files using a local web server:
+## Deploying to GitHub Pages
 
-*   **Using Node.js `serve` package:**
-    ```bash
-    npx serve
-    ```
+This repo auto-publishes to GitHub Pages on pushes to `master` via `.github/workflows/deploy.yml`.
 
-*   **Using Python's built-in HTTP server:**
-    ```bash
-    python3 -m http.server
-    ```
+What’s set up
+- Workflow publishes the repository root to the `gh-pages` branch (orphaned) using `peaceiris/actions-gh-pages@v4`.
+- SW is fully disabled to avoid caching surprises on devices.
+- Favicon and assets use relative paths (work under Pages subpaths).
 
-**3. Access the application:**
+One-time repo settings (GitHub → Settings → Pages)
+- Source: Deploy from a branch
+- Branch: `gh-pages` / root (`/`)
 
-Open your web browser and navigate to the local address provided by the server (e.g., `http://localhost:3000` or `http://localhost:8000`).
+Deploy steps
+```bash
+git add -A
+git commit -m "chore: prepare GitHub Pages deploy (disable SW, fix paths)"
+git push origin master
+```
 
-**4. Verify PWA functionality:**
+Visit: `https://<your-username>.github.io/<repo-name>/`
 
-*   Open your browser's developer tools.
-*   Go to the "Application" tab.
-*   Check that the service worker is registered and running.
-*   Verify that the application files are cached under "Cache Storage".
-*   Confirm that an "ExpenseTracker" database has been created in "IndexedDB".
-*   To test offline functionality, disconnect from the internet and reload the page. The application should continue to work as expected.
+Tips
+- While iterating, add `?v=dev&nosw` to the URL to avoid stale loads.
