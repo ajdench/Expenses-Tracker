@@ -4,3 +4,7 @@ blob-report/
 playwright/.cache/
 .test-results/
 test-results/
+node_modules/
+.DS_Store
+dist/
+*.log

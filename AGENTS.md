@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - Root static PWA. Key files: `index.html`, `styles.css`, `app.js` (bootstraps, debug), `ui.js` (DOM rendering, drag-and-drop), `db.js` (IndexedDB via `idb`), `register-sw.js` and `service-worker.js` (PWA), `manifest.json`, `favicon.png`.
 - UI sections (rendered by `renderShell` in `ui.js`): `#active-trips-container`, `#submitted-trips-container`, `#reimbursed-trips-container` inside `#trip-list-container`.
-- Trip card affordance: each trip includes a `.view-details-btn` used by tests to open detail.
+- Trip card affordance: single-click selects; double-click opens details (no button).
 - Tests: `tests/` with Playwright specs; config in `playwright.config.ts`. Test reports in `playwright-report/` and `test-results/`.
 
 ## Build, Test, and Development Commands
@@ -28,6 +28,21 @@
 - PRs: Include a clear description, linked issue(s), screenshots or short clips for UI changes, and notes on testing. Update affected tests.
 
 ## Security & Configuration Tips
-- Service Worker: Disabled on `localhost` and when `?nosw` is present. For caching checks, remove `?nosw` and bump the `v` query in `index.html`/assets.
-- Caching: Use the in-app `clearAppCache()` helper from the console to purge caches and unregister SW during development.
-- Data: Uses IndexedDB (`ExpenseTracker` DB). Consider migration impacts when changing object stores/indexes.
+- Service Worker: Disabled globally in `register-sw.js` for development/Pages testing (unregisters any SW, clears caches). Re-enable later before production.
+- Caching: Use `?v=dev&nosw` in the URL to force fresh loads while iterating.
+- Data: Uses IndexedDB (`ExpenseTracker`). If needed, we can gate an in-memory store behind a flag.
+
+## GitHub Pages Deploy
+- Changes made: SW disabled globally; favicon path made relative; `.gitignore` updated (ignores `node_modules/`); deploy workflow uses `peaceiris/actions-gh-pages@v4` to publish repo root to `gh-pages`.
+- One-time settings: GitHub → Settings → Pages → Source: Deploy from a branch; Branch: `gh-pages` / root (`/`).
+- Local check: `npm start` then open `http://localhost:3000/index.html?v=dev&nosw`.
+- Commit + push to deploy:
+  - `git add -A`
+  - `git commit -m "chore: prepare GitHub Pages deploy (disable SW, fix paths)"`
+  - `git push origin master`
+- Access URL: `https://<username>.github.io/<repo>/` (append `?v=dev&nosw` while iterating).
+
+### Re-enabling the Service Worker (production)
+- Toggle: In `register-sw.js`, set `DEFAULT_ENABLE_SW = true` (or define `window.ENABLE_SW = true` before loading `register-sw.js`).
+- Remove `?nosw` from URLs and bump the `v` query on assets/`index.html` to bust caches.
+- Validate: Open DevTools → Application → Service Workers to confirm registration; test offline.
