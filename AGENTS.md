@@ -17,6 +17,12 @@
 - Edit expense: double-click on desktop; long-press (~500ms) on mobile (no extra buttons).
 - Receipts: tap grey icon to capture/upload; tap green icon to preview in a modal. Badge shows count of receipts. “Retake / Add” appends another image; “Make Current” marks the active preview as current (nothing is deleted).
 
+### UI/UX Conventions
+- Cards: all header, trip, and collapsed expense cards are 74px tall with 2px grey borders and 16px padding. A consistent 1rem gap exists below headers before content.
+- Trip selection: selected trip cards keep the grey border; tap selected on mobile to open details (double-click on desktop still works).
+- Forms: currency, amount, date, and time fields are centered in both shadow (read-only) and edit modes.
+- iOS safe areas: the app uses `viewport-fit=cover`, a neutral `theme-color`, and `env(safe-area-inset-*)` paddings to avoid bright bars around the Dynamic Island/home indicator.
+
 ## Coding Style & Naming Conventions
 - JavaScript: 2-space indent, semicolons, single quotes; `const`/`let` appropriately.
 - Naming: functions/vars `camelCase`; CSS classes/IDs `kebab-case` (e.g., `#add-trip-card`); constants `UPPER_SNAKE` when needed.

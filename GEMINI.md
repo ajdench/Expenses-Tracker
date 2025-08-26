@@ -59,4 +59,3 @@ Open your web browser and navigate to the local address provided by the server (
 *   [x] Resolve `favicon.png` 404 on GitHub Pages.
 *   [x] Resolve `ReferenceError: Can't find variable: window` in service worker.
 *   [ ] **CRITICAL:** Fix "Save Trip" functionality on `localhost` and GitHub Pages (input value is empty during form submission).
-*   [ ] **CRITICAL:** Fix Bootstrap modal not hiding on GitHub Pages (`TypeError: null is not an object (evaluating 'modal.hide')`).

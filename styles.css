@@ -27,8 +27,8 @@
   --theme-color-blue-dusty: #89a5c9;
   --theme-color-green-dusty: #7aa992;
   /* Fine-tune vertical nudges inside expense cards */
-  --expense-vendor-nudge-y: 0px;
-  --expense-date-nudge-y: 0px;
+  --expense-vendor-nudge-y: -2.5px;
+  --expense-date-nudge-y: -2.5px;
 }
 
 .btn-custom-blue {
@@ -251,6 +251,10 @@
 /* Respect iOS safe areas and neutral background */
 html, body { background-color: #f8f9fa; }
 body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+/* Restore gap beneath header cards and above content */
+#trip-list-container,
+#expense-list-container,
+#settings-container { margin-top: 1rem; }
 
 /* Remove all card shadows to improve visual padding consistency */
 .card { box-shadow: none !important; }
@@ -279,6 +283,22 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 .receipt-thumb { border: 2px solid var(--light-grey); border-radius: 0.25rem; padding: 2px; cursor: pointer; flex: 0 0 auto; }
 .receipt-thumb img { height: 64px; width: auto; display: block; }
 .receipt-thumb--active { border-color: var(--theme-color-blue); }
+/* Center currency and amount values */
+#exp-amount, #exp-amount-edit { text-align: center; }
+#exp-currency, #exp-currency-edit { text-align: center; text-align-last: center; }
+/* Center Date and Time in editors */
+#exp-date, #exp-time, #exp-date-edit, #exp-time-edit { text-align: center; }
+/* Shadow mode (Add Expense) center Currency and Amount */
+#add-expense-card .shadow-input[aria-label="Currency"],
+#add-expense-card .shadow-input[aria-label="Amount"] {
+  text-align: center;
+  text-align-last: center;
+}
+/* Shadow mode center Date and Time */
+#add-expense-card .shadow-input[aria-label="Date"],
+#add-expense-card .shadow-input[aria-label="Time"] {
+  text-align: center;
+}
 
 /* Expense card layout tweaks */
 .expense-grid { display: flex; align-items: center; height: 100%; }

@@ -44,8 +44,8 @@ async function renderSettingsPage() {
     const color = colorMap[cat] || DEFAULT_CATEGORY_COLORS[cat] || DEFAULT_CATEGORY_COLORS['Other'];
     const safeId = `cat-${cat.replace(/[^a-z0-9]/gi, '_')}`;
     return `<div class="category-grid">
-      <span class="badge expense-category-pill" style="align-self:center; background-color:${color}; color:#fff;">${escapeHTML(cat)}</span>
-      <input class="settings-color-input" type="color" id="${safeId}" name="${escapeHTML(cat)}" value="${color}" />
+      <button type="button" class="btn badge expense-category-pill" data-cat="${escapeHTML(cat)}" id="${safeId}"
+        style="align-self:center; background-color:${color}; color:#fff;">${escapeHTML(cat)}</button>
     </div>`;
   }).join('');
 
@@ -62,9 +62,8 @@ async function renderSettingsPage() {
           <div class="card-body">
             <h6 class="mb-2">Category Colours</h6>
             <div id="category-color-list" class="d-flex flex-column gap-2">${rows || '<p class="text-placeholder mb-0">No categories yet</p>'}</div>
-            <div class="d-flex justify-content-end gap-2 mt-3">
-              <button id="reset-cat-colors" class="btn btn-secondary">Reset to defaults</button>
-              <button id="save-cat-colors" class="btn btn-secondary">Save</button>
+            <div class="mt-3">
+              <button id="reset-cat-colors" class="btn btn-secondary">Reset</button>
             </div>
           </div>
         </div>
@@ -76,12 +75,35 @@ async function renderSettingsPage() {
     await saveCategoryColors({});
     renderSettingsPage();
   });
-  document.getElementById('save-cat-colors').addEventListener('click', async () => {
-    const inputs = Array.from(document.querySelectorAll('#category-color-list input[type="color"]'));
-    const map = {};
-    inputs.forEach(inp => { map[inp.name] = inp.value; });
-    await saveCategoryColors(map);
-    alert('Category colors saved');
+  // Inline color picking on pill click (auto-save)
+  document.querySelectorAll('#category-color-list .expense-category-pill').forEach(pill => {
+    pill.addEventListener('click', async () => {
+      const cat = pill.getAttribute('data-cat');
+      const current = pill.style.backgroundColor;
+      const input = document.createElement('input');
+      input.type = 'color';
+      // Attempt to convert rgb to hex if needed
+      try {
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.fillStyle = current;
+        const hex = ctx.fillStyle;
+        input.value = /^#/.test(hex) ? hex : '#6c757d';
+      } catch { input.value = '#6c757d'; }
+      input.style.position = 'fixed'; input.style.left = '-9999px';
+      document.body.appendChild(input);
+      input.addEventListener('change', async () => {
+        const newColor = input.value;
+        try {
+          const map = await loadCategoryColorMap();
+          map[cat] = newColor;
+          await saveCategoryColors(map);
+          pill.style.backgroundColor = newColor;
+        } finally {
+          document.body.removeChild(input);
+        }
+      }, { once: true });
+      input.click();
+    });
   });
 }
 
@@ -729,7 +751,6 @@ function openReceiptPicker(expenseId, iconEl) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.capture = 'environment';
   input.style.position = 'fixed';
   input.style.left = '-9999px';
   document.body.appendChild(input);
