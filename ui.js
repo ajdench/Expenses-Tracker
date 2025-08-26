@@ -438,7 +438,7 @@ function buildExpenseCard(expense, isSelected) {
   // Mobile long-press to edit (no extra buttons)
   attachLongPressToEdit(card, expense);
 
-  // Receipt icon click → open camera/gallery
+  // Receipt icon click → open action sheet (add) or preview
   const icon = card.querySelector('.expense-receipt-icon');
   if (icon) {
     icon.addEventListener('click', async (ev) => {
@@ -446,11 +446,15 @@ function buildExpenseCard(expense, isSelected) {
       if (icon.classList.contains('has-receipt')) {
         await showReceiptModal(expense.id);
       } else {
-        openReceiptPicker(expense.id, icon);
+        openReceiptActionSheet(expense.id, icon);
       }
     });
-    icon.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReceiptPicker(expense.id, icon); }
+    icon.addEventListener('keydown', async (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        if (icon.classList.contains('has-receipt')) await showReceiptModal(expense.id);
+        else openReceiptActionSheet(expense.id, icon);
+      }
     });
   }
   return card;
@@ -774,6 +778,55 @@ function openReceiptPicker(expenseId, iconEl) {
   input.click();
 }
 
+function openReceiptPickerFiles(expenseId, iconEl) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/pdf,image/*';
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    if (file) {
+      try {
+        await saveReceiptForExpense(expenseId, file);
+        iconEl?.classList.add('has-receipt');
+        try {
+          const receipts = await getReceiptsByExpenseId(expenseId);
+          const badge = iconEl?.parentElement?.querySelector('.receipt-count-badge');
+          if (badge) { badge.textContent = String(receipts.length); badge.classList.remove('d-none'); }
+        } catch {}
+        const modalId = `receipt-modal-${expenseId}`;
+        const modalEl = document.getElementById(modalId);
+        if (modalEl) await renderReceiptModalContent(modalEl, expenseId);
+      } catch (e) {
+        console.error('Failed to save receipt', e);
+        alert('Failed to save receipt');
+      }
+    }
+    document.body.removeChild(input);
+  });
+  input.click();
+}
+
+function openReceiptActionSheet(expenseId, iconEl) {
+  const modalId = `receipt-action-${expenseId}`;
+  let modalEl = document.getElementById(modalId);
+  if (!modalEl) {
+    modalEl = document.createElement('div');
+    modalEl.className = 'modal fade';
+    modalEl.id = modalId;
+    modalEl.tabIndex = -1;
+    modalEl.innerHTML = `
+      <div class=\"modal-dialog modal-dialog-centered\">\n        <div class=\"modal-content\">\n          <div class=\"modal-header\">\n            <h5 class=\"modal-title\">Add receipt</h5>\n            <button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\" aria-label=\"Close\"></button>\n          </div>\n          <div class=\"modal-body d-grid gap-2\">\n            <button type=\"button\" class=\"btn btn-outline-primary\" id=\"scan-docs\">Scan Document (Files)</button>\n            <button type=\"button\" class=\"btn btn-outline-secondary\" id=\"camera-photos\">Camera / Photos</button>\n          </div>\n        </div>\n      </div>`;
+    document.body.appendChild(modalEl);
+  }
+  const modal = getModalInstance(modalId);
+  modal?.show();
+  modalEl.querySelector('#scan-docs').onclick = () => { modal?.hide(); openReceiptPickerFiles(expenseId, iconEl); };
+  modalEl.querySelector('#camera-photos').onclick = () => { modal?.hide(); openReceiptPicker(expenseId, iconEl); };
+}
+
 async function showReceiptModal(expenseId) {
   const modalId = `receipt-modal-${expenseId}`;
   let modalEl = document.getElementById(modalId);
@@ -790,7 +843,10 @@ async function showReceiptModal(expenseId) {
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <div class="receipt-viewer"><img id="receipt-main" alt="Receipt" /></div>
+            <div class="receipt-viewer">
+              <img id="receipt-main-img" alt="Receipt" style="display:none;" />
+              <iframe id="receipt-main-pdf" title="Receipt PDF" style="display:none; width:100%; height:60vh; border:0;"></iframe>
+            </div>
             <div class="receipt-thumbs mt-2" id="receipt-thumbs"></div>
           </div>
           <div class="modal-footer">
@@ -808,7 +864,7 @@ async function showReceiptModal(expenseId) {
   modal?.show();
 
   const retakeBtn = modalEl.querySelector('#retake-receipt');
-  retakeBtn.onclick = () => openReceiptPicker(expenseId, document.querySelector(`[data-expense-id="${expenseId}"] .expense-receipt-icon`) );
+  retakeBtn.onclick = () => openReceiptActionSheet(expenseId, document.querySelector(`[data-expense-id="${expenseId}"] .expense-receipt-icon`) );
   const makeCurrentBtn = document.createElement('button');
   makeCurrentBtn.type = 'button';
   makeCurrentBtn.className = 'btn btn-custom-green';
@@ -830,26 +886,41 @@ async function showReceiptModal(expenseId) {
 }
 
 async function renderReceiptModalContent(modalEl, expenseId) {
-  const mainImg = modalEl.querySelector('#receipt-main');
+  const mainImg = modalEl.querySelector('#receipt-main-img');
+  const mainPdf = modalEl.querySelector('#receipt-main-pdf');
   const thumbs = modalEl.querySelector('#receipt-thumbs');
   thumbs.innerHTML = '';
   const receipts = await getReceiptsByExpenseId(expenseId);
   if (!receipts.length) {
-    mainImg.removeAttribute('src');
-    mainImg.alt = 'No receipts yet';
+    mainImg.style.display = 'none';
+    mainPdf.style.display = 'none';
     return;
   }
-  const urls = receipts.map(r => ({ id: r.id, url: URL.createObjectURL(r.blob), current: !!r.current }));
+  const urls = receipts.map(r => ({ id: r.id, url: URL.createObjectURL(r.blob), mime: r.mime || '', current: !!r.current }));
   const setActive = (id) => {
     thumbs.querySelectorAll('.receipt-thumb').forEach(el => el.classList.toggle('receipt-thumb--active', el.dataset.id === id));
     const u = urls.find(x => x.id === id);
-    if (u) mainImg.src = u.url;
+    if (!u) return;
+    if ((u.mime || '').startsWith('application/pdf')) {
+      mainImg.style.display = 'none';
+      mainPdf.style.display = 'block';
+      mainPdf.src = u.url;
+    } else {
+      mainPdf.style.display = 'none';
+      mainImg.style.display = 'block';
+      mainImg.src = u.url;
+    }
   };
   urls.forEach((u, idx) => {
     const t = document.createElement('div');
     t.className = 'receipt-thumb';
     t.dataset.id = u.id;
-    t.innerHTML = `<img src="${u.url}" alt="Receipt ${idx+1}">`;
+    if ((u.mime || '').startsWith('application/pdf')) {
+      t.classList.add('receipt-thumb--pdf');
+      t.innerHTML = `<div style=\"height:64px;display:flex;align-items:center;justify-content:center;min-width:48px;\">PDF</div>`;
+    } else {
+      t.innerHTML = `<img src=\"${u.url}\" alt=\"Receipt ${idx+1}\">`;
+    }
     t.addEventListener('click', () => setActive(u.id));
     thumbs.appendChild(t);
   });
