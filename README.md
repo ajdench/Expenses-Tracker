@@ -16,6 +16,12 @@ Fast, phone‑friendly trip expense tracking. Create trips, add expenses, attach
 - Receipts: Grey icon = add (camera roll / camera). Green icon = preview; thumbnails + “Retake / Add”; “Make Current” marks the active image. All images are kept.
 - Mobile polish: Compact cards (74px), centered fields (currency/amount/date/time), safe‑area support for iPhone Dynamic Island.
 
+### Receipts: Adjust Edges (scan-like)
+- In the receipts preview, select an image and tap “Adjust edges”.
+- Drag the 4 corner handles to fit the document; pinch to zoom and drag background to pan (desktop: wheel‑zoom + drag).
+- Controls: Reset (re‑detect), Rotate 90°, Apply (saves a rectified copy and marks it current), Cancel.
+- PDFs are unchanged (editor is for images only).
+
 ### Settings
 - Category colours: Tap a category pill to pick a colour. Reset restores defaults (full‑width button).
 - Cache and Offline: “Clear cache” unregisters Service Workers and clears cached assets (dashed gold button).
@@ -54,7 +60,8 @@ Open: `http://localhost:3000/index.html?v=dev&nosw`
 Notes
 - Service Worker is disabled during development and Pages deploys (see `register-sw.js`).
 - Data persists in the browser via IndexedDB (`ExpenseTracker`).
- - Icon selections and category colours are saved under the `settings` store.
+- Icon selections and category colours are saved under the `settings` store.
+ - Image editor libraries (OpenCV.js, Interact.js) are lazy‑loaded at runtime; enable the Service Worker to cache them for offline use.
 
 Design/UX
 - Cards: headers, trip, and collapsed expense cards are 74px (2px grey borders, 16px padding). There’s a consistent 1rem gap below headers.
@@ -93,14 +100,35 @@ Tips
 Structure
 - `index.html`, `styles.css`, `app.js` (boot/debug), `ui.js` (DOM + drag), `db.js` (IndexedDB via idb), `register-sw.js`, `service-worker.js` (currently disabled), `manifest.json`.
 - Sections: `#active-trips-container`, `#submitted-trips-container`, `#reimbursed-trips-container` inside `#trip-list-container`.
+- Image editing: `image-editor.js` (edge detection, corner refine, warp), loaded on demand.
 
 Data & Receipts
 - Trips/Expenses: stored in IndexedDB (`ExpenseTracker`).
 - Receipts: stored as Blobs in an IndexedDB `receipts` store, indexed by `expenseId`. Preview modal uses object URLs; “Retake / Add” appends; “Make Current” marks current without deleting older images.
- - Settings: `settings` store keeps `categoryColors` and `icons` (receipt/home/cog class names).
+- Settings: `settings` store keeps `categoryColors` and `icons` (receipt/home/cog class names).
+ - Image Adjust settings: `settings.imageAdjust` stores `{ autoDetect, dragEngine, warpEngine, maxLongSide }`.
+
+Image Editor (OpenCV/Canvas)
+- Module: `image-editor.js` provides `openReceiptEdgeEditor(blob, options)`.
+- Auto‑detect: OpenCV Canny → contours → approxPolyDP (largest quad) for initial corners.
+- Manual refine: draggable corners with magnifier loupe; pinch‑to‑zoom + pan; rotate 90°.
+- Warp:
+  - OpenCV: perspective transform (recommended)
+  - Canvas: axis‑aligned crop (fallback/testing)
+- Output: JPEG Blob (quality 0.9) appended as a new receipt and marked current (non‑destructive).
+
+Libraries
+- OpenCV.js (WASM) lazy‑loaded from `https://docs.opencv.org/4.9.0/opencv.js`.
+- Interact.js lazy‑loaded from jsDelivr (optional; default drag uses Pointer Events).
+- Service Worker caches both with stale‑while‑revalidate for offline usage.
 
 Testing
 - Playwright e2e: `npm run test:e2e` (headed: `:headed`, UI: `:ui`). Set `BASE_URL=http://localhost:3000 APP_VERSION=dev`.
+
+## Enabling Offline Caching for Editor Libraries
+- In `register-sw.js`, set `DEFAULT_ENABLE_SW = true` and remove `?nosw` from the URL.
+- Hard reload once online to cache libraries (OpenCV.js, Interact.js) via the Service Worker.
+- Validate in DevTools → Application → Service Workers, then test offline.
 
 ## iOS Shortcuts: Scan Documents Integration
 

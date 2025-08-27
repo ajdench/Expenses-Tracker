@@ -38,6 +38,10 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
   const isVersionedAsset = /\.(?:html|css|js)$/.test(url.pathname);
+  const isLibrary = (
+    url.hostname.includes('docs.opencv.org') ||
+    (url.hostname.includes('cdn.jsdelivr.net') && url.pathname.includes('@interactjs'))
+  );
 
   if (isVersionedAsset) {
     // Network-first for HTML/CSS/JS so dev changes show immediately
@@ -54,6 +58,14 @@ self.addEventListener('fetch', event => {
         }
       })()
     );
+  } else if (isLibrary) {
+    // Stale-while-revalidate for heavy libraries (OpenCV.js, Interact.js)
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(req);
+      const fetchPromise = fetch(req).then(res => { cache.put(req, res.clone()); return res; }).catch(()=>null);
+      return cached || (await fetchPromise);
+    })());
   } else {
     // Cache-first for other assets
     event.respondWith(

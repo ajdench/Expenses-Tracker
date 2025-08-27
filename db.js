@@ -173,6 +173,17 @@ async function saveReceiptForExpense(expenseId, file) {
   return db.put('receipts', record);
 }
 
+// Image adjust settings
+async function getImageAdjustSettings() {
+  try {
+    const record = await db.get('settings', 'imageAdjust');
+    return record?.value || {};
+  } catch (e) { return {}; }
+}
+async function saveImageAdjustSettings(map) {
+  try { await db.put('settings', { key: 'imageAdjust', value: map }); } catch (e) { console.error(e); }
+}
+
 async function getReceiptsByExpenseId(expenseId) {
   try {
     return await db.getAllFromIndex('receipts', 'by_expenseId', expenseId);

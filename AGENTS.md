@@ -4,7 +4,8 @@
 - Root static PWA. Key files: `index.html`, `styles.css`, `app.js` (bootstraps, debug), `ui.js` (DOM rendering, drag-and-drop), `db.js` (IndexedDB via `idb`), `register-sw.js` and `service-worker.js` (PWA), `manifest.json`, `favicon.png`.
 - UI sections (rendered by `renderShell` in `ui.js`): `#active-trips-container`, `#submitted-trips-container`, `#reimbursed-trips-container` inside `#trip-list-container`.
 - Settings page (rendered by `renderSettingsPage`): left column half‑width “Category Colours”; right column two stacked cards “Cache and Offline” and “Delete Content”; an additional row below with two icon‑selection cards.
- - iOS Shortcuts: Settings adds an “iOS Shortcuts” card (toggle + API base URL) enabling native Scan Documents via Shortcuts.
+- iOS Shortcuts: Settings adds an “iOS Shortcuts” card (toggle + API base URL) enabling native Scan Documents via Shortcuts.
+- Image editing: `image-editor.js` is loaded on demand to provide in‑modal edge adjustment.
 - Trip card affordance: single-click selects; double-click opens details (no button).
 - Tests: `tests/` with Playwright specs; config in `playwright.config.ts`. Test reports in `playwright-report/` and `test-results/`.
 
@@ -45,6 +46,8 @@
 - Data: Uses IndexedDB (`ExpenseTracker`). If needed, we can gate an in-memory store behind a flag.
   - Settings: `settings` store holds `{ key, value }` records for `categoryColors` and `icons`.
   - Shortcuts: `settings.scan = { enable: boolean, apiBaseUrl: string }`.
+  - Image Adjust: `settings.imageAdjust = { autoDetect, dragEngine, warpEngine, maxLongSide }`.
+  - Service Worker: caches OpenCV.js and Interact.js with stale‑while‑revalidate when enabled.
 
 ## GitHub Pages Deploy
 - Changes made: SW disabled globally; favicon path made relative; `.gitignore` updated (ignores `node_modules/`); deploy workflow uses `peaceiris/actions-gh-pages@v4` to publish repo root to `gh-pages`.
@@ -97,6 +100,11 @@
   - On return, `app.js` parses `?scan=`; on `done`, fetch `GET {API_BASE}/files/:id`, save as receipt, mark current, and strip query.
   - The “Scan with iOS Shortcuts” action is available in the Add/Retake sheet when enabled, configured, and on iOS Safari.
   - Files mode: A separate option “Scan (Shortcuts → Files)” launches a Shortcut that saves the PDF locally (no server). On `?scan=files-done`, the app shows a button to open the Files picker and you choose the just‑saved PDF. The app passes a filename like `vendor-date-time-currency-value.pdf` based on the expense.
+ - Image editor:
+   - Auto‑detect via OpenCV (largest quadrilateral); manual refine with draggable corners + magnifier.
+   - Warp engines: OpenCV (perspective) or Canvas (axis‑aligned fallback) selectable in Settings.
+   - Drag engines: Pointer Events (default) or Interact.js.
+   - Pinch‑to‑zoom/pan; Rotate 90°; non‑destructive save as new current receipt.
   - Templates: Filename and (optional) subfolder are configurable in Settings using variables `{vendor}`, `{date}` (YYYYMMDD), `{time}` (HHmm), `{currency}`, `{amount}`, `{trip}`. Subfolder can reflect parent Trip (e.g., `Trip-{trip}`).
 
 ## QA Checklist
@@ -122,6 +130,11 @@
   - Shortcuts toggle persists; API base URL is respected.
   - “Scan with iOS Shortcuts” appears only on iOS Safari when enabled and API base is set.
   - After a scan, receipt is attached to the intended expense and marked current.
+- Image Adjust
+  - Adjust edges opens on image receipts, not PDFs.
+  - Corners draggable; loupe visible; Reset/Rotate/Apply/Cancel responsive.
+  - OpenCV/Canvas warp produces correct result; saves as new receipt and marks current.
+  - Pinch‑to‑zoom and pan function on mobile; wheel‑zoom and pan on desktop.
 
 ## Development: Shortcuts Integration
 1. Add Settings card “iOS Shortcuts” with toggle and `apiBaseUrl` input (`ui.js`, persisted via `db.js` `getScanSettings`/`saveScanSettings`).

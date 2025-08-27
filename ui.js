@@ -194,6 +194,38 @@ async function renderSettingsPage() {
             </div>
           </div>
         </section>
+        <section class="settings-icons-row">
+          <div class="card app-card">
+            <div class="card-body">
+              <h6 class="mb-2">Image Adjust</h6>
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <label for="img-auto-detect" class="mb-0" style="min-width:140px;">Auto-detect</label>
+                  <input type="checkbox" id="img-auto-detect" ${((await getImageAdjustSettings())?.autoDetect ?? true) ? 'checked' : ''}>
+                  <small class="text-muted">OpenCV edge detection</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <label for="img-drag-engine" class="mb-0" style="min-width:140px;">Drag engine</label>
+                  <select id="img-drag-engine" class="form-select" style="max-width:220px;">
+                    <option value="pointer">Pointer Events</option>
+                    <option value="interact">Interact.js</option>
+                  </select>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <label for="img-warp-engine" class="mb-0" style="min-width:140px;">Warp engine</label>
+                  <select id="img-warp-engine" class="form-select" style="max-width:220px;">
+                    <option value="opencv">OpenCV (perspective)</option>
+                    <option value="canvas">Canvas (axis-aligned)</option>
+                  </select>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <label for="img-max-side" class="mb-0" style="min-width:140px;">Max long side (px)</label>
+                  <input id="img-max-side" type="number" class="form-control" style="max-width:220px;" value="${((await getImageAdjustSettings())?.maxLongSide || 2000)}">
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   `;
@@ -231,6 +263,30 @@ async function renderSettingsPage() {
     const s = await getScanSettings();
     const ok = !!(s.enable && s.apiBaseUrl);
     alert(ok ? 'Shortcuts appears enabled and API base is set' : 'Enable Shortcuts and set API base URL');
+  });
+  // Image adjust settings handlers
+  (async () => {
+    const current = await getImageAdjustSettings();
+    const dragSel = document.getElementById('img-drag-engine');
+    const warpSel = document.getElementById('img-warp-engine');
+    if (dragSel) dragSel.value = current.dragEngine || 'pointer';
+    if (warpSel) warpSel.value = current.warpEngine || 'opencv';
+  })();
+  document.getElementById('img-auto-detect')?.addEventListener('change', async (e) => {
+    const cur = await getImageAdjustSettings();
+    cur.autoDetect = !!e.target.checked; await saveImageAdjustSettings(cur);
+  });
+  document.getElementById('img-drag-engine')?.addEventListener('change', async (e) => {
+    const cur = await getImageAdjustSettings();
+    cur.dragEngine = e.target.value; await saveImageAdjustSettings(cur);
+  });
+  document.getElementById('img-warp-engine')?.addEventListener('change', async (e) => {
+    const cur = await getImageAdjustSettings();
+    cur.warpEngine = e.target.value; await saveImageAdjustSettings(cur);
+  });
+  document.getElementById('img-max-side')?.addEventListener('change', async (e) => {
+    const cur = await getImageAdjustSettings();
+    const v = parseInt(e.target.value,10); cur.maxLongSide = Number.isFinite(v) && v>200 ? v : 2000; await saveImageAdjustSettings(cur);
   });
   // Files mode toggle
   document.getElementById('scan-files-enable')?.addEventListener('change', async (e) => {
@@ -1251,6 +1307,7 @@ async function showReceiptModal(expenseId) {
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="retake-receipt">Retake / Add</button>
+            <button type="button" class="btn btn-secondary" id="adjust-edges">Adjust edges</button>
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
@@ -1265,6 +1322,31 @@ async function showReceiptModal(expenseId) {
 
   const retakeBtn = modalEl.querySelector('#retake-receipt');
   retakeBtn.onclick = () => openReceiptActionSheet(expenseId, document.querySelector(`[data-expense-id="${expenseId}"] .expense-receipt-icon`) );
+  const adjustBtn = modalEl.querySelector('#adjust-edges');
+  adjustBtn.onclick = async () => {
+    try {
+      // Determine active receipt
+      const activeThumb = modalEl.querySelector('.receipt-thumb.receipt-thumb--active');
+      if (!activeThumb) return;
+      const rid = activeThumb.dataset.id;
+      const receipts = await getReceiptsByExpenseId(expenseId);
+      const rec = receipts.find(r => r.id === rid);
+      if (!rec || (rec.mime||'').startsWith('application/pdf')) { alert('Adjust is for images only'); return; }
+      const imgAdjust = await (typeof getImageAdjustSettings === 'function' ? getImageAdjustSettings() : {});
+      const cfg = {
+        autoDetect: imgAdjust.autoDetect ?? true,
+        dragEngine: imgAdjust.dragEngine || 'pointer',
+        warpEngine: imgAdjust.warpEngine || 'opencv',
+        maxLongSide: imgAdjust.maxLongSide || 2000
+      };
+      const blob = await window.openReceiptEdgeEditor(rec.blob, cfg);
+      if (blob) {
+        const newId = await saveReceiptForExpense(expenseId, new File([blob], 'adjusted.jpg', { type: blob.type || 'image/jpeg' }));
+        try { await setCurrentReceipt(expenseId, newId); } catch {}
+        await renderReceiptModalContent(modalEl, expenseId);
+      }
+    } catch (e) { console.error('Adjust edges failed', e); }
+  };
   const makeCurrentBtn = document.createElement('button');
   makeCurrentBtn.type = 'button';
   makeCurrentBtn.className = 'btn btn-custom-green';
