@@ -211,10 +211,19 @@
     let dragging = -1;
     function toCanvasCoords(clientX, clientY) {
       const r = overlay.getBoundingClientRect();
-      // boundingClientRect already includes CSS transforms; do not subtract panX/panY
-      const x = (clientX - r.left) / zoom;
-      const y = (clientY - r.top) / zoom;
+      // Map screen coords to canvas pixel coords via rect ratio (robust to CSS transforms)
+      const sx = overlay.width / r.width;
+      const sy = overlay.height / r.height;
+      const x = (clientX - r.left) * sx;
+      const y = (clientY - r.top) * sy;
       return { x, y };
+    }
+
+    function getClientXY(evt) {
+      if (evt.touches && evt.touches.length) {
+        return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
+      }
+      return { x: evt.clientX, y: evt.clientY };
     }
     function hitTest(x,y) {
       for (let i=0;i<4;i++) {
@@ -224,17 +233,18 @@
       return -1;
     }
     let panning = false;
-    function onDown(e){ const {x,y} = toCanvasCoords(e.clientX, e.clientY); dragging = hitTest(x,y); if (dragging<0) { panning = true; lastPan = { cx: e.clientX, cy: e.clientY }; } if (dragging>=0) e.preventDefault(); }
+    function onDown(e){ const pt = getClientXY(e); const {x,y} = toCanvasCoords(pt.x, pt.y); dragging = hitTest(x,y); if (dragging<0) { panning = true; lastPan = { cx: pt.x, cy: pt.y }; } if (dragging>=0) e.preventDefault(); }
     function onMove(e){
+      const pt = getClientXY(e);
       if (dragging>=0) {
-        const {x,y} = toCanvasCoords(e.clientX, e.clientY);
+        const {x,y} = toCanvasCoords(pt.x, pt.y);
         pts[dragging].x = Math.max(0, Math.min(overlay.width, x));
         pts[dragging].y = Math.max(0, Math.min(overlay.height, y));
         render(); drawLoupe(octx, base, pts[dragging].x, pts[dragging].y);
       } else if (panning && !pinching) {
-        panX += (e.clientX - lastPan.cx);
-        panY += (e.clientY - lastPan.cy);
-        lastPan = { cx: e.clientX, cy: e.clientY };
+        panX += (pt.x - lastPan.cx);
+        panY += (pt.y - lastPan.cy);
+        lastPan = { cx: pt.x, cy: pt.y };
         applyViewTransform();
       }
     }
@@ -248,6 +258,13 @@
     overlay.addEventListener('pointermove', onMove);
     overlay.addEventListener('pointerup', onUp);
     overlay.addEventListener('pointercancel', onUp);
+    // Touch/mouse fallbacks for broader Safari compatibility
+    overlay.addEventListener('touchstart', (e)=>{ e.preventDefault(); onDown(e); }, { passive: false });
+    overlay.addEventListener('touchmove', (e)=>{ e.preventDefault(); onMove(e); }, { passive: false });
+    overlay.addEventListener('touchend', (e)=>{ onUp(e); });
+    overlay.addEventListener('mousedown', onDown);
+    overlay.addEventListener('mousemove', onMove);
+    overlay.addEventListener('mouseup', onUp);
 
     // Pinch zoom (two pointers) and wheel zoom
     let pinching = false; let lastDist = 0; let lastMid = null; let lastPan = { cx:0, cy:0 };
@@ -282,7 +299,7 @@
       zoom = 1; panX = 0; panY = 0; applyViewTransform(); render();
     };
 
-    const done = (res, resolve) => { overlay.removeEventListener('pointerdown', onDown); overlay.removeEventListener('pointermove', onMove); overlay.removeEventListener('pointerup', onUp); overlay.removeEventListener('pointercancel', onUp); document.removeEventListener('keydown', onKey); document.body.removeChild(wrap); resolve(res); };
+    const done = (res, resolve) => { overlay.removeEventListener('pointerdown', onDown); overlay.removeEventListener('pointermove', onMove); overlay.removeEventListener('pointerup', onUp); overlay.removeEventListener('pointercancel', onUp); overlay.removeEventListener('touchstart', onDown); overlay.removeEventListener('touchmove', onMove); overlay.removeEventListener('touchend', onUp); overlay.removeEventListener('mousedown', onDown); overlay.removeEventListener('mousemove', onMove); overlay.removeEventListener('mouseup', onUp); document.removeEventListener('keydown', onKey); document.body.removeChild(wrap); resolve(res); };
 
     return new Promise((resolve, reject) => {
       btnCancel.onclick = () => done(null, resolve);
