@@ -1,0 +1,504 @@
+/* Custom placeholder color to match shadow text */
+#add-expense-card.editing input::placeholder,
+#add-expense-card.editing textarea::placeholder,
+#add-expense-card.editing select.is-placeholder,
+#add-expense-card.editing .is-default {
+  color: var(--light-grey) !important;
+}
+
+/* Grid-based layout for dual-field rows */
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+:root {
+  --card-header-h1-margin-bottom: 0;
+  --home-icon-size: 1.5rem; /* 24px */
+  --global-horizontal-padding: 1rem; /* 16px */
+  --light-grey: #d1d5db; /* Dullergrey */
+  --muted-grey: #6c757d;
+  --uniform-card-height: 74px;
+  --uniform-control-height: 40px;
+  --header-title-size: 24px;
+  --theme-color-blue: #1663bb;
+  --theme-color-green: #198754;
+  --theme-color-blue-dusty: #89a5c9;
+  --theme-color-green-dusty: #7aa992;
+  /* Fine-tune vertical nudges inside expense cards */
+  --expense-vendor-nudge-y: -2.5px;
+  --expense-date-nudge-y: -2.5px;
+}
+
+.btn-custom-blue {
+    background-color: var(--theme-color-blue-dusty) !important;
+    border-color: var(--theme-color-blue-dusty) !important;
+    color: white !important;
+}
+.btn-custom-blue:hover {
+  background-color: var(--theme-color-blue) !important;
+  border-color: var(--theme-color-blue) !important;
+}
+
+.btn-custom-green {
+    background-color: var(--theme-color-green-dusty) !important;
+    border-color: var(--theme-color-green-dusty) !important;
+    color: white !important;
+}
+.btn-custom-green:hover {
+  background-color: var(--theme-color-green) !important;
+  border-color: var(--theme-color-green) !important;
+}
+
+.bg-custom-green {
+  background-color: var(--theme-color-green) !important;
+}
+
+.expense-card--selected { color: white !important; }
+.expense-card--selected .card-body { background-color: rgba(25, 135, 84, 0.2); }
+
+.ghost-card {
+  opacity: 0.5;
+  background: #ccc;
+}
+
+/* Shadow (placeholder) cards share styling */
+.add-trip-card,
+.add-expense-card {
+  --shadow-border-color: var(--light-grey);
+  --shadow-bg: #f8f9fa;
+  border: 2px dashed var(--shadow-border-color);
+  color: var(--muted-grey);
+  background-color: var(--shadow-bg);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  user-select: none;
+}
+.add-trip-card:hover,
+.add-expense-card:hover { box-shadow: none !important; }
+.add-trip-card.editing,
+.add-expense-card.editing {
+  background-color: var(--shadow-bg);
+  border-style: solid;
+  border-color: var(--shadow-border-color);
+}
+
+/* Dashed button variants for shadow cards */
+.btn-dashed-blue {
+  border: 2px dashed var(--theme-color-blue-dusty) !important;
+  color: var(--theme-color-blue-dusty) !important;
+  background-color: #ffffff !important;
+}
+.btn-dashed-blue:hover,
+.btn-dashed-blue:focus {
+  border-style: solid !important;
+}
+.btn-dashed-grey {
+  border: 2px dashed #6c757d !important;
+  color: #6c757d !important;
+  background-color: #ffffff !important;
+}
+.btn-dashed-grey:hover,
+.btn-dashed-grey:focus {
+  border-style: solid !important;
+}
+.btn-dashed-green {
+  border: 2px dashed var(--theme-color-green-dusty) !important;
+  color: var(--theme-color-green-dusty) !important;
+  background-color: #ffffff !important;
+}
+.btn-dashed-green:hover,
+.btn-dashed-green:focus {
+  border-style: solid !important;
+}
+
+/* Dashed gold variant for Clear cache */
+.btn-dashed-gold {
+  border: 2px dashed #d4a017 !important;
+  color: #d4a017 !important;
+  background-color: rgba(255, 215, 0, 0.10) !important;
+  font-weight: 700;
+}
+.btn-dashed-gold:hover,
+.btn-dashed-gold:focus {
+  border-style: solid !important;
+}
+
+/* Dashed orange variant for destructive actions */
+.btn-dashed-orange {
+  border: 2px dashed #e67e22 !important; /* orange */
+  color: #e67e22 !important;
+  background-color: rgba(230, 126, 34, 0.10) !important;
+  font-weight: 700;
+}
+.btn-dashed-orange:hover,
+.btn-dashed-orange:focus {
+  border-style: solid !important;
+}
+
+/* Inline editor row layout */
+.edit-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+.edit-row .btn-equal {
+  flex: 0 0 110px;
+  min-width: 110px;
+  white-space: nowrap;
+}
+.edit-row .form-control, .edit-row .form-select, .edit-row textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+/* Thicker border for app cards */
+.trip-card,
+.expense-card {
+  border: 2px solid var(--light-grey) !important;
+}
+/* Keep trip card grey border even when selected (blue) and hovered */
+.trip-card.btn-custom-blue:hover,
+.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
+.trip-card.btn-custom-blue { background-color: #ffffff !important; border-color: #89a5c9 !important; color: inherit !important; }
+/* Selected trip cards keep dull blue background and grey border */
+.trip-card.btn-custom-blue { background-color: #ffffff !important; border-color: #89a5c9 !important; color: inherit !important; }
+.trip-card.btn-custom-blue:hover,
+.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
+/* Do not darken selected trip cards on hover; keep dull blue */
+.trip-card.btn-custom-blue:hover,
+.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
+/* Enforce exact height on trip cards (border-to-border) */
+.trip-card.card-uniform-height { height: var(--uniform-card-height) !important; box-sizing: border-box; }
+
+/* Keep editor inputs thick */
+.add-trip-card.editing .form-control,
+.add-trip-card.editing .form-select,
+#add-expense-card.editing .form-control,
+#add-expense-card.editing .form-select {
+  border-width: 2px;
+  border-color: var(--light-grey);
+}
+
+/* Uniform control heights */
+.form-control, .form-select, .btn-uniform-height {
+  height: var(--uniform-control-height);
+}
+#add-expense-card.editing .form-control,
+#add-expense-card.editing .form-select {
+  height: var(--uniform-control-height);
+}
+.single-line-notes {
+  height: var(--uniform-control-height);
+  overflow: hidden;
+  resize: none;
+}
+
+/* Section headers to grey */
+#trip-list-container h5 {
+  color: var(--light-grey);
+}
+
+.text-placeholder {
+  color: var(--light-grey);
+}
+
+/* Uniform card heights */
+.card-uniform-height {
+  height: var(--uniform-card-height);
+  box-sizing: border-box; /* include border in total height */
+  border-width: 2px !important; /* unify border thickness for consistent inner box */
+}
+.card-uniform-height .card-body,
+.card-uniform-height .card-header {
+  display: flex;
+  align-items: center;
+}
+.card-uniform-height .card-header { height: var(--uniform-card-height); box-sizing: border-box; }
+/* Enforce default padding inside uniform cards */
+.card-uniform-height .card-body { padding: 1rem !important; }
+
+/* Expense cards (collapsed): 0.75rem top/bottom, 1rem left/right */
+.expense-card.card-uniform-height .card-body { padding: 0.75rem 1rem !important; }
+.add-trip-card .card-body:not(.edit-row),
+#add-expense-card .card-body {
+  display: block;
+}
+
+.card .card-body > * {
+    margin-bottom: 0;
+}
+
+.card-header {
+  position: relative;
+}
+.header-title {
+  font-size: var(--header-title-size);
+  margin-bottom: 0;
+}
+.header-btn-left {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.header-btn-right {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.btn-no-style {
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.home-icon {
+  font-size: var(--home-icon-size);
+  line-height: 1;
+}
+
+/* Respect iOS safe areas and neutral background */
+html, body { background-color: #f8f9fa; }
+body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+/* Restore gap beneath header cards and above content */
+#trip-list-container,
+#expense-list-container,
+#settings-container,
+#archived-list-container { margin-top: 1rem; }
+
+/* Remove all card shadows to improve visual padding consistency */
+.card { box-shadow: none !important; }
+.card, .trip-card, .expense-card, .add-trip-card { border-radius: 0.375rem !important; }
+.trip-card { overflow: hidden; }
+.add-trip-card:hover { box-shadow: none !important; }
+
+/* Expense card icon size */
+.expense-receipt-icon { font-size: 24px; line-height: 1; color: var(--muted-grey); }
+.expense-receipt-icon.has-receipt { color: var(--theme-color-green) !important; }
+.receipt-count-badge {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  background: var(--theme-color-blue);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+/* Receipts modal */
+.modal-dialog {
+  margin: 1rem auto;
+  max-width: min(700px, calc(100% - 2 * var(--global-horizontal-padding)));
+}
+.receipt-viewer { display: flex; justify-content: center; align-items: center; }
+.receipt-viewer { background: #ffffff; }
+.receipt-viewer img { max-width: 100%; max-height: 60vh; border-radius: 0.25rem; }
+.receipt-thumbs { display: flex; gap: 0.5rem; overflow-x: auto; padding-top: 0.5rem; }
+.receipt-thumb { position: relative; border: 2px solid var(--light-grey); border-radius: 0.25rem; padding: 2px; cursor: pointer; flex: 0 0 auto; background: #ffffff; }
+.receipt-thumb img { height: 64px; width: auto; display: block; }
+.receipt-thumb--active { border-color: var(--theme-color-blue); }
+.receipt-thumb--pdf { display: flex; align-items: center; justify-content: center; min-width: 48px; }
+
+.receipt-thumb-delete {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #dc3545; /* red */
+  color: #fff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+/* Archive drop zone */
+.drop-zone {
+  border: 2px dashed var(--light-grey);
+  border-radius: 0.25rem;
+  height: var(--uniform-card-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--light-grey);
+}
+.drop-zone--archive { border-color: var(--light-grey); color: var(--light-grey); }
+.drop-zone--unarchive { border-color: var(--theme-color-green-dusty); color: var(--theme-color-green-dusty); }
+.drop-zone--delete { border-color: #dc3545; color: #dc3545; }
+
+/* Edge editor overlay */
+.edge-editor-wrap {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1060; display: flex; flex-direction: column; gap: 0.5rem; padding: 0.5rem; 
+}
+.edge-editor-toolbar { display: flex; gap: 0.5rem; justify-content: flex-end; }
+.edge-editor-toolbar { z-index: 2; }
+.edge-editor-stage { position: relative; z-index: 0; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.edge-editor-canvas { max-width: 100%; max-height: 100%; background: #111; }
+.edge-editor-overlay { position: absolute; top: 0; left: 0; touch-action: none; z-index: 1; }
+
+/* Embedded editor inside modal */
+.edge-embed { border: 2px solid var(--light-grey); border-radius: 0.25rem; background: #000; padding: 0.5rem; }
+.edge-embed-toolbar { display:flex; gap:0.5rem; justify-content:flex-end; margin-bottom:0.5rem; }
+.edge-embed-stage { position: relative; width: 100%; max-height: 60vh; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#111; }
+.edge-embed-canvas { max-width: 100%; max-height: 100%; }
+.edge-embed-overlay { position:absolute; top:0; left:0; touch-action:none; }
+
+/* Modal working overlay */
+.modal-working {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.modal-working .spinner-border { width: 2rem; height: 2rem; }
+/* Center currency and amount values */
+#exp-amount, #exp-amount-edit { text-align: center; }
+#exp-currency, #exp-currency-edit { text-align: center; text-align-last: center; }
+/* Center Date and Time in editors */
+#exp-date, #exp-time, #exp-date-edit, #exp-time-edit { text-align: center; }
+/* Shadow mode (Add Expense) center Currency and Amount */
+#add-expense-card .shadow-input[aria-label="Currency"],
+#add-expense-card .shadow-input[aria-label="Amount"] {
+  text-align: center;
+  text-align-last: center;
+}
+/* Shadow mode center Date and Time */
+#add-expense-card .shadow-input[aria-label="Date"],
+#add-expense-card .shadow-input[aria-label="Time"] {
+  text-align: center;
+}
+
+/* Expense card layout tweaks */
+.expense-grid { display: flex; align-items: center; height: 100%; }
+.expense-grid > .col-left { flex: 0 0 40%; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; height: 100%; }
+.expense-grid > .col-datetime { flex: 0 0 20%; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; height: 100%; }
+.expense-grid > .col-amount { flex: 0 0 30%; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
+.expense-grid > .col-amount { padding-right: 0; }
+.expense-grid .col-amount p { margin: 0; width: 100%; text-align: right; }
+.expense-grid > .col-icon { flex: 0 0 10%; display: flex; align-items: center; justify-content: flex-end; }
+
+/* Mobile adjustments to prevent date wrapping and give amount more room */
+@media (max-width: 480px) {
+  .expense-grid > .col-left { flex: 0 0 38%; }
+  .expense-grid > .col-datetime { flex: 0 0 24%; }
+  .expense-grid > .col-amount { flex: 0 0 28%; }
+  .expense-grid > .col-icon { flex: 0 0 10%; }
+}
+.expense-description { margin: 0; font-size: 1rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transform: translateY(var(--expense-vendor-nudge-y)); }
+.expense-date { transform: translateY(var(--expense-date-nudge-y)); white-space: nowrap; }
+.expense-time { white-space: nowrap; }
+.expense-category-pill { display: inline-block; margin-top: 2px; }
+.category-grid .expense-category-pill { justify-self: start; display: inline-block; }
+
+.container {
+  padding: var(--global-horizontal-padding) !important; /* 16px all around */
+}
+
+.shadow-input[readonly] {
+    color: var(--light-grey) !important;
+    -webkit-text-fill-color: var(--light-grey) !important;
+    border: 2px dashed var(--light-grey) !important;
+    background-color: #ffffff !important;
+}
+
+/* Settings layout */
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* left half, right half */
+  gap: 0.5rem; /* default internal gap matches forms/grids */
+  align-items: stretch;
+}
+.settings-right {
+  display: grid;
+  grid-template-rows: 1fr 1fr; /* two equal rows */
+  gap: 0.5rem; /* default internal gap */
+  height: 100%; /* fill the row to match left card height */
+}
+.settings-right > .card { height: 100%; }
+
+/* Second row under main settings grid for icon options */
+.settings-icons-row { grid-column: 1 / -1; }
+.settings-icons-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.settings-icon-option { display: flex; align-items: center; gap: 0.5rem; }
+.settings-icon-preview { font-size: 1.5rem; }
+
+.category-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 1rem;
+}
+.settings-color-input {
+  height: var(--uniform-control-height);
+  width: 61px;
+  border: 2px solid var(--light-grey);
+  border-radius: 0.375rem;
+  padding: 0;
+  background: none;
+}
+.app-card {
+  border: 2px solid var(--light-grey) !important;
+}
+
+/* Trip lists use flex column layout */
+#active-trips-container,
+#submitted-trips-container,
+#reimbursed-trips-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Expense list uses flex and consistent gap */
+/* Use default Bootstrap margins for vertical spacing */
+
+.shadow-input--bold[readonly] {
+    font-weight: 700;
+}
+
+.expense-card-details {
+  flex-grow: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;
+}
+
+.expense-description {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Standardize vertical spacing between all cards and shadow cards */
+#active-trips-container,
+#submitted-trips-container,
+#reimbursed-trips-container,
+#expense-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* consistent stack gap */
+}
+
+/* Neutralize per-card margins inside stacked containers to avoid double spacing */
+#active-trips-container .card,
+#submitted-trips-container .card,
+#reimbursed-trips-container .card,
+#expense-list-container .card {
+  margin-bottom: 0 !important;
+}
