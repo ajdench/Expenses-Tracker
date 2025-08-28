@@ -21,6 +21,18 @@ async function renderShell() {
           <h5 class="mb-2 text-placeholder">Active</h5>
           <div id="active-trips-container"></div>
         </section>
+        <section class="settings-icons-row">
+          <div class="card app-card">
+            <div class="card-body">
+              <h6 class="mb-2">Trip Swipes</h6>
+              <div class="d-flex align-items-center gap-2">
+                <input type="checkbox" id="trip-swipes-enable" ${(((await getTripSwipeSettings())?.enable) !== false) ? 'checked' : ''}>
+                <label for="trip-swipes-enable" class="mb-0">Enable swipe actions on Active trips</label>
+              </div>
+              <small class="text-muted">Swipe right → Submitted, left → Reimbursed (Active only).</small>
+            </div>
+          </div>
+        </section>
         <section class="mb-4">
           <h5 class="mb-2 text-placeholder">Submitted</h5>
           <div id="submitted-trips-container"></div>
@@ -45,7 +57,8 @@ async function renderSettingsPage() {
   const categories = Array.from(new Set([...Object.keys(DEFAULT_CATEGORY_COLORS), ...discovered]));
 
   const rows = categories.map(cat => {
-    const color = colorMap[cat] || DEFAULT_CATEGORY_COLORS[cat] || DEFAULT_CATEGORY_COLORS['Other'];
+    const base = colorMap[cat] || DEFAULT_CATEGORY_COLORS[cat] || DEFAULT_CATEGORY_COLORS['Other'];
+    const color = typeof pastelizeColor === 'function' ? pastelizeColor(base) : base;
     const safeId = `cat-${cat.replace(/[^a-z0-9]/gi, '_')}`;
     return `<div class="category-grid">
       <button type="button" class="btn badge expense-category-pill" data-cat="${escapeHTML(cat)}" id="${safeId}"
@@ -197,8 +210,46 @@ async function renderSettingsPage() {
         <section class="settings-icons-row">
           <div class="card app-card">
             <div class="card-body">
+              <h6 class="mb-2">Receipt Viewer</h6>
+              <div class="d-flex flex-column gap-2">
+                <label><input type="radio" name="viewer-mode" value="modal"> Modal (default)</label>
+                <label><input type="radio" name="viewer-mode" value="page"> Full page</label>
+                <small class="text-muted">Choose how receipts open after adding or when tapping the icon.</small>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="settings-icons-row">
+          <div class="card app-card">
+            <div class="card-body">
+              <h6 class="mb-2">Receipt Sources</h6>
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <input type="checkbox" id="src-camera" checked>
+                  <label for="src-camera" class="mb-0">Camera / Photos (file picker)</label>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <input type="checkbox" id="src-scan-web">
+                  <label for="src-scan-web" class="mb-0">Scan with iOS Shortcuts (Web upload)</label>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <input type="checkbox" id="src-scan-files">
+                  <label for="src-scan-files" class="mb-0">Scan (Shortcuts → Files)</label>
+                </div>
+                <small class="text-muted">Only enabled sources appear in the Add/Retake menu.</small>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="settings-icons-row">
+          <div class="card app-card">
+            <div class="card-body">
               <h6 class="mb-2">Image Adjust</h6>
               <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <input type="checkbox" id="img-enable-experimental" ${(((await getImageAdjustSettings())?.enableExperimental) ? 'checked' : '')}>
+                  <label for="img-enable-experimental" class="mb-0">Enable Crop/Skew (experimental)</label>
+                </div>
                 <div class="d-flex align-items-center gap-2">
                   <label for="img-auto-detect" class="mb-0" style="min-width:140px;">Auto-detect</label>
                   <input type="checkbox" id="img-auto-detect" ${((await getImageAdjustSettings())?.autoDetect ?? true) ? 'checked' : ''}>
@@ -272,6 +323,20 @@ async function renderSettingsPage() {
     if (dragSel) dragSel.value = current.dragEngine || 'pointer';
     if (warpSel) warpSel.value = current.warpEngine || 'opencv';
   })();
+  // Receipt viewer mode init + handlers
+  (async () => {
+    const set = await (typeof getReceiptViewerSettings==='function' ? getReceiptViewerSettings() : {});
+    const mode = set.mode || 'modal';
+    const radios = document.querySelectorAll('input[name="viewer-mode"]');
+    radios.forEach(r => { r.checked = (r.value === mode); r.addEventListener('change', async (e)=>{
+      const cur = await getReceiptViewerSettings();
+      cur.mode = e.target.value; await saveReceiptViewerSettings(cur);
+    }); });
+  })();
+  document.getElementById('img-enable-experimental')?.addEventListener('change', async (e) => {
+    const cur = await getImageAdjustSettings();
+    cur.enableExperimental = !!e.target.checked; await saveImageAdjustSettings(cur);
+  });
   document.getElementById('img-auto-detect')?.addEventListener('change', async (e) => {
     const cur = await getImageAdjustSettings();
     cur.autoDetect = !!e.target.checked; await saveImageAdjustSettings(cur);
@@ -288,11 +353,30 @@ async function renderSettingsPage() {
     const cur = await getImageAdjustSettings();
     const v = parseInt(e.target.value,10); cur.maxLongSide = Number.isFinite(v) && v>200 ? v : 2000; await saveImageAdjustSettings(cur);
   });
+  // Capture sources
+  (async () => {
+    const cap = await getCaptureSettings();
+    const cam = document.getElementById('src-camera');
+    const web = document.getElementById('src-scan-web');
+    const files = document.getElementById('src-scan-files');
+    if (cam) cam.checked = cap.camera !== false; // default true
+    if (web) web.checked = !!cap.scanWeb;
+    if (files) files.checked = !!cap.scanFiles;
+    cam?.addEventListener('change', async (e)=>{ const c=await getCaptureSettings(); c.camera = !!e.target.checked; await saveCaptureSettings(c); });
+    web?.addEventListener('change', async (e)=>{ const c=await getCaptureSettings(); c.scanWeb = !!e.target.checked; await saveCaptureSettings(c); });
+    files?.addEventListener('change', async (e)=>{ const c=await getCaptureSettings(); c.scanFiles = !!e.target.checked; await saveCaptureSettings(c); });
+  })();
   // Files mode toggle
   document.getElementById('scan-files-enable')?.addEventListener('change', async (e) => {
     const current = await getScanSettings();
     current.filesEnable = !!e.target.checked;
     await saveScanSettings(current);
+  });
+  // Trip swipes toggle
+  document.getElementById('trip-swipes-enable')?.addEventListener('change', async (e) => {
+    const cur = await getTripSwipeSettings();
+    cur.enable = !!e.target.checked;
+    await saveTripSwipeSettings(cur);
   });
   document.getElementById('scan-filename-template')?.addEventListener('change', async (e) => {
     const current = await getScanSettings();
@@ -422,6 +506,47 @@ function buildTripCard(trip, isSelected) {
       <h5 class="card-title mb-0">${escapeHTML(trip.name)}</h5>
     </div>
   `;
+  // Swipe gestures for status change (Active only): right→Submitted (green), left→Reimbursed (purple)
+  try {
+    (async () => {
+      const sw = await (typeof getTripSwipeSettings === 'function' ? getTripSwipeSettings() : {});
+      const enabled = sw.enable !== false; // default ON
+      if (!enabled) return;
+    const content = card.querySelector('.card-body');
+    card.style.position = 'relative';
+    card.style.overflow = 'hidden';
+      card.style.touchAction = 'pan-y';
+      const reveal = document.createElement('div');
+      reveal.style.position = 'absolute'; reveal.style.inset='0'; reveal.style.zIndex='0';
+      reveal.style.borderRadius = getComputedStyle(card).borderRadius || '0.25rem';
+      reveal.style.overflow = 'hidden';
+      const left = document.createElement('div');
+      left.style.position='absolute'; left.style.left='0'; left.style.top='0'; left.style.bottom='0'; left.style.width='50%'; left.style.background='#7aa992';
+      const li=document.createElement('i'); li.className='bi bi-check2'; li.style.color='#fff'; li.style.position='absolute'; li.style.left='12px'; li.style.top='50%'; li.style.transform='translateY(-50%)'; left.appendChild(li);
+      const right = document.createElement('div');
+      right.style.position='absolute'; right.style.right='0'; right.style.top='0'; right.style.bottom='0'; right.style.width='50%'; right.style.background='#a78bfa';
+      const ri=document.createElement('i'); ri.className='bi bi-coin'; ri.style.color='#fff'; ri.style.position='absolute'; ri.style.right='12px'; ri.style.top='50%'; ri.style.transform='translateY(-50%)'; right.appendChild(ri);
+      reveal.append(left,right);
+      reveal.style.opacity='0'; reveal.style.transition='opacity 100ms ease';
+      card.prepend(reveal);
+      content.style.position='relative'; content.style.zIndex='1'; content.style.background='transparent';
+      let startX=0, curX=0, swiping=false;
+      const onTouchStart = (e)=>{ const t=e.touches?.[0]; if(!t) return; startX=curX=t.clientX; swiping=true; content.style.transition='none'; reveal.style.opacity='1'; };
+      const onTouchMove = (e)=>{ if(!swiping) return; const t=e.touches?.[0]; if(!t) return; curX=t.clientX; let dx=curX-startX; const max=Math.round(card.offsetWidth*0.3); if(dx>max) dx=max; if(dx<-max) dx=-max; content.style.transform=`translateX(${dx}px)`; e.preventDefault(); };
+      const onTouchEnd = async ()=>{ if(!swiping) return; swiping=false; const dx=curX-startX; content.style.transition='transform 150ms ease';
+        const parentId = card.parentElement && card.parentElement.id || '';
+        if (parentId==='active-trips-container') {
+          const thresh = Math.round(card.offsetWidth*0.2);
+          if (dx>thresh) { content.style.transform='translateX(0)'; reveal.style.opacity='0'; try { trip.status='submitted'; await saveTrip(trip); await renderTripLists(trip.id); } catch (e) {} }
+          else if (dx<-thresh) { content.style.transform='translateX(0)'; try { trip.status='reimbursed'; await saveTrip(trip); await renderTripLists(trip.id); } catch (e) {} finally { reveal.style.opacity='0'; } }
+          else { content.style.transform='translateX(0)'; reveal.style.opacity='0'; }
+        } else { content.style.transform='translateX(0)'; reveal.style.opacity='0'; }
+      };
+      card.addEventListener('touchstart', onTouchStart, { passive:true });
+      card.addEventListener('touchmove', onTouchMove, { passive:false });
+      card.addEventListener('touchend', onTouchEnd);
+    })();
+  } catch (e) {}
   card.addEventListener('click', (e) => {
     // If already selected, navigate to details on tap (mobile-friendly)
     if (card.classList.contains('btn-custom-blue')) {
@@ -567,6 +692,9 @@ async function renderTripLists(selectedTripId = null) {
         ghostClass: 'ghost-card',
         draggable: '.trip-card',
         filter: '.add-trip-card',
+        delay: 150,
+        delayOnTouchOnly: true,
+        direction: 'vertical',
         onEnd: async () => {
           await syncTripOrderFromDOM();
           await renderTripLists();
@@ -681,17 +809,48 @@ async function colorizeCategorySelect(selectEl) {
   const map = await loadCategoryColorMap();
   Array.from(selectEl.options).forEach(opt => {
     const name = opt.value || opt.textContent;
-    const color = map[name];
+    const base = map[name];
+    const color = typeof pastelizeColor === 'function' ? pastelizeColor(base) : base;
     if (color) {
       opt.style.backgroundColor = color;
       opt.style.color = '#fff';
     }
+
+
+function pastelizeColor(color) {
+  // Accept hex like #RRGGBB; return hsl with reduced saturation and higher lightness
+  try {
+    let r=0,g=0,b=0;
+    if (/^#?[0-9a-fA-F]{6}$/.test(color)) {
+      const hex = color.replace('#','');
+      r = parseInt(hex.slice(0,2),16)/255; g = parseInt(hex.slice(2,4),16)/255; b = parseInt(hex.slice(4,6),16)/255;
+    } else {
+      // Fallback: let browser parse and read back
+      const tmp = document.createElement('div'); tmp.style.color = color; document.body.appendChild(tmp); const cs = getComputedStyle(tmp).color; document.body.removeChild(tmp);
+      const m = cs.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/); if (m) { r = +m[1]/255; g = +m[2]/255; b = +m[3]/255; } else { return color; }
+    }
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    let h=0,s=0,l=(max+min)/2;
+    if (max!==min) {
+      const d = max-min;
+      s = l>0.5 ? d/(2-max-min) : d/(max+min);
+      switch (max) { case r: h=(g-b)/d + (g<b?6:0); break; case g: h=(b-r)/d + 2; break; case b: h=(r-g)/d + 4; break; }
+      h/=6;
+    }
+    s = Math.max(0, s*0.6); // reduce saturation
+    l = Math.min(1, l*1.1); // increase lightness
+    const hs = Math.round(h*360), ss = Math.round(s*100), ls = Math.round(l*100);
+    return `hsl(${hs} ${ss}% ${ls}%)`;
+  } catch { return color; }
+}
+
   });
 }
 
 function buildExpenseCard(expense, isSelected) {
   const card = document.createElement('div');
   card.className = `card mb-3 card-uniform-height expense-card ${isSelected ? 'expense-card--selected' : ''}`;
+  card.draggable = true;
   card.dataset.expenseId = expense.id;
   const expenseDate = new Date(expense.date);
   const dateOptions = { day: '2-digit', month: 'short', year: '2-digit' };
@@ -743,18 +902,41 @@ function buildExpenseCard(expense, isSelected) {
     }
   });
   
-  card.addEventListener('click', async (e) => {
-    if (e.detail >= 2) {
-      await selectExpense(expense.id);
-      const fresh = document.querySelector(`[data-expense-id="${expense.id}"]`);
-      if (fresh) startEditExpense(fresh, expense);
-    } else {
-      selectExpense(expense.id);
-    }
+  // Desktop double-click to edit; single click = select
+  card.addEventListener('dblclick', async (e) => {
+    e.preventDefault();
+    await selectExpense(expense.id);
+    const fresh = document.querySelector(`[data-expense-id=\"${expense.id}\"]`);
+    if (fresh) startEditExpense(fresh, expense);
   });
+  card.addEventListener('click', () => selectExpense(expense.id));
+
+  // Swipe gestures: right→edit (green), left→archive (orange)
+  card.style.position = 'relative';
+  card.style.touchAction = 'pan-y';
+  const reveal = document.createElement('div');
+  reveal.style.position = 'absolute'; reveal.style.inset = '0'; reveal.style.zIndex = '0';
+  reveal.style.borderRadius = getComputedStyle(card).borderRadius || '0.25rem';
+  reveal.style.background = 'linear-gradient(90deg, #198754 0 50%, #fd7e14 50% 100%)';
+  card.prepend(reveal);
+  const content = card.querySelector('.card-body') || card;
+  content.style.position = 'relative'; content.style.zIndex = '1';
+  let startX=0, curX=0, swiping=false;
+  const onTouchStart = (e)=>{ const t=e.touches?.[0]; if(!t) return; startX = curX = t.clientX; swiping=true; content.style.transition='none'; reveal.style.opacity='1'; };
+  const onTouchMove = (e)=>{ if(!swiping) return; const t=e.touches?.[0]; if(!t) return; curX=t.clientX; const dx=curX-startX; content.style.transform = `translateX(${dx}px)`; };
+  const onTouchEnd = async ()=>{ if(!swiping) return; swiping=false; const dx=curX-startX; content.style.transition='transform 150ms ease'; if(dx>80){ content.style.transform='translateX(0)'; reveal.style.opacity='0'; await selectExpense(expense.id); const fresh=document.querySelector(`[data-expense-id=\"${expense.id}\"]`); if(fresh) startEditExpense(fresh, expense);} else if(dx<-80){ content.style.transform='translateX(-100%)'; try{ expense.archived=true; await saveExpense(expense); const c=document.getElementById('expense-list-container'); const tripId=c?.dataset.tripId; if(tripId) await renderExpenseList(tripId,null);}catch{} finally { reveal.style.opacity='0'; } } else { content.style.transform='translateX(0)'; reveal.style.opacity='0'; } };
+  card.addEventListener('touchstart', onTouchStart, { passive:true });
+  card.addEventListener('touchmove', onTouchMove, { passive:true });
+  card.addEventListener('touchend', onTouchEnd);
 
   // Mobile long-press to edit (no extra buttons)
   attachLongPressToEdit(card, expense);
+  // Drag to archive support
+  card.addEventListener('dragstart', (e) => {
+    if (!e.dataTransfer) return;
+    e.dataTransfer.setData('text/expense-id', expense.id);
+    e.dataTransfer.effectAllowed = 'move';
+  });
 
   // Receipt icon click → add (camera/photos) or preview
   const icon = card.querySelector('.expense-receipt-icon');
@@ -762,7 +944,7 @@ function buildExpenseCard(expense, isSelected) {
     icon.addEventListener('click', async (ev) => {
       ev.stopPropagation();
       if (icon.classList.contains('has-receipt')) {
-        await showReceiptModal(expense.id);
+        await openReceiptViewer(expense.id);
       } else {
         openReceiptActionSheet(expense.id, icon);
       }
@@ -770,7 +952,7 @@ function buildExpenseCard(expense, isSelected) {
     icon.addEventListener('keydown', async (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') {
         ev.preventDefault();
-        if (icon.classList.contains('has-receipt')) await showReceiptModal(expense.id);
+        if (icon.classList.contains('has-receipt')) await openReceiptViewer(expense.id);
         else openReceiptActionSheet(expense.id, icon);
       }
     });
@@ -794,7 +976,7 @@ function startEditExpense(card, expense) {
           <option>€</option>
           <option>zł</option>
         </select>
-        <input type="number" class="form-control" placeholder="0.00" step="0.01" aria-label="Amount" id="exp-amount-edit" value="${expense.amount}">
+        <input type="number" class="form-control" placeholder="0.00" step="0.01" aria-label="Amount" id="exp-amount-edit" value="${expense.amount}" inputmode="decimal">
       </div>
       <div class="grid-2-col">
         <input type="date" class="form-control" aria-label="Date" id="exp-date-edit" value="${expense.date.slice(0,10)}">
@@ -916,7 +1098,7 @@ function buildAddExpenseShadowCard(tripId) {
               <option>€</option>
               <option>zł</option>
             </select>
-            <input type="number" class="form-control" placeholder="0.00" step="0.01" aria-label="Amount" id="exp-amount">
+            <input type="number" class="form-control" placeholder="0.00" step="0.01" aria-label="Amount" id="exp-amount" inputmode="decimal">
           </div>
           <div class="grid-2-col">
             <input type="date" class="form-control is-default" value="${today}" aria-label="Date" id="exp-date">
@@ -1034,7 +1216,8 @@ function buildAddExpenseShadowCard(tripId) {
         date: `${date.value}T${time.value || '00:00'}`,
         category: categoryValue,
         notes: notes?.value?.trim() || '',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        position: (await (async()=>{ try{ const ex = await getExpensesByTripId(tripId); const act = ex.filter(e=>!e.archived); const maxPos = Math.max(-1, ...act.map(e=>Number.isFinite(e.position)?e.position:-1)); return (maxPos>=0?maxPos+1:act.length);} catch (e) { return 0; } })())
       };
       await saveExpense(expense);
       await renderExpenseList(tripId);
@@ -1069,6 +1252,22 @@ function attachLongPressToEdit(card, expense) {
 }
 
 // Open camera/gallery, save to IndexedDB, and mark icon
+async function normalizeImageForSave(file) {
+  try {
+    const bmp = await (window.createImageBitmap ? createImageBitmap(file) : Promise.reject('no cib'));
+    const canvas = document.createElement('canvas');
+    canvas.width = bmp.width; canvas.height = bmp.height;
+    const ctx = canvas.getContext('2d');
+    // Fill white to avoid black where source has transparency
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bmp, 0, 0);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+    if (blob) return new File([blob], (file.name || 'receipt') + '.jpg', { type: 'image/jpeg' });
+  } catch {}
+  return file;
+}
+
 function openReceiptPicker(expenseId, iconEl) {
   const input = document.createElement('input');
   input.type = 'file';
@@ -1080,15 +1279,22 @@ function openReceiptPicker(expenseId, iconEl) {
     const file = input.files && input.files[0];
     if (file) {
       try {
-        await saveReceiptForExpense(expenseId, file);
+        const toSave = await normalizeImageForSave(file);
+        const newId = await saveReceiptForExpense(expenseId, toSave);
         iconEl?.classList.add('has-receipt');
-        // If a modal is open for this expense, refresh it
+        try { await setCurrentReceipt(expenseId, newId); } catch {}
+        // If a modal is open for this expense, refresh; otherwise open it now
         const modalId = `receipt-modal-${expenseId}`;
-        const modalEl = document.getElementById(modalId);
-        if (modalEl) await renderReceiptModalContent(modalEl, expenseId);
+        let modalEl = document.getElementById(modalId);
+        if (modalEl) {
+          await renderReceiptModalContent(modalEl, expenseId);
+        } else {
+          await openReceiptViewer(expenseId);
+        }
       } catch (e) {
         console.error('Failed to save receipt', e);
-        alert('Failed to save receipt');
+        // Non-blocking notice; do not freeze the flow
+        try { console.warn('Save failed, attempting to open modal for diagnostics'); await showReceiptModal(expenseId); } catch {}
       }
     }
     document.body.removeChild(input);
@@ -1138,27 +1344,33 @@ function openReceiptActionSheet(expenseId, iconEl) {
   // Enable/disable Shortcuts based on settings + environment
   modalEl.querySelector('#pick-photo')?.addEventListener('click', pickHandler);
   (async () => {
-    const btn = modalEl.querySelector('#scan-shortcuts');
-    if (!btn) return;
-    const scan = await loadScanSettings();
-    const enabled = scan.enable && !!scan.apiBaseUrl && isIosSafari();
-    btn.disabled = !enabled;
-    btn.addEventListener('click', scanHandler);
-  })();
-  (async () => {
-    const btn = modalEl.querySelector('#scan-files');
-    if (!btn) return;
-    const scan = await loadScanSettings();
-    const enabled = !!isIosSafari() && !!scan.filesEnable;
-    btn.disabled = !enabled;
-    btn.addEventListener('click', scanFilesHandler);
+    const cap = await (typeof getCaptureSettings==='function' ? getCaptureSettings() : {});
+    const camOn = cap.camera !== false;
+    const webOn = !!cap.scanWeb;
+    const filesOn = !!cap.scanFiles;
+    const btnCam = modalEl.querySelector('#pick-photo');
+    const btnWeb = modalEl.querySelector('#scan-shortcuts');
+    const btnFiles = modalEl.querySelector('#scan-files');
+    if (btnCam) btnCam.style.display = camOn ? '' : 'none';
+    if (btnWeb) {
+      const s = await loadScanSettings();
+      const ok = s.enable && !!s.apiBaseUrl && isIosSafari();
+      btnWeb.style.display = (webOn && ok) ? '' : 'none';
+      if (webOn && ok) btnWeb.addEventListener('click', scanHandler);
+    }
+    if (btnFiles) {
+      const s = await loadScanSettings();
+      const ok = !!isIosSafari() && !!s.filesEnable;
+      btnFiles.style.display = (filesOn && ok) ? '' : 'none';
+      if (filesOn && ok) btnFiles.addEventListener('click', scanFilesHandler);
+    }
   })();
 }
 
 function isIosSafari() {
   const ua = navigator.userAgent || navigator.vendor || '';
-  const isiOS = /iPad|iPhone|iPod/.test(ua);
-  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  const isiOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isSafari = /^((?!chrome|crios|fxios|android).)*safari/i.test(ua);
   return isiOS && isSafari;
 }
 
@@ -1307,7 +1519,7 @@ async function showReceiptModal(expenseId) {
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="retake-receipt">Retake / Add</button>
-            <button type="button" class="btn btn-secondary" id="adjust-edges">Adjust edges</button>
+            <button type="button" class="btn btn-secondary" id="crop-image">Crop</button>
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
@@ -1322,37 +1534,162 @@ async function showReceiptModal(expenseId) {
 
   const retakeBtn = modalEl.querySelector('#retake-receipt');
   retakeBtn.onclick = () => openReceiptActionSheet(expenseId, document.querySelector(`[data-expense-id="${expenseId}"] .expense-receipt-icon`) );
-  const adjustBtn = modalEl.querySelector('#adjust-edges');
-  adjustBtn.onclick = async () => {
+  // Crop (axis-aligned, stable)
+  modalEl.querySelector('#crop-image').onclick = async () => {
     try {
-      // Determine active receipt
       const activeThumb = modalEl.querySelector('.receipt-thumb.receipt-thumb--active');
       if (!activeThumb) return;
       const rid = activeThumb.dataset.id;
       const receipts = await getReceiptsByExpenseId(expenseId);
       const rec = receipts.find(r => r.id === rid);
-      if (!rec || (rec.mime||'').startsWith('application/pdf')) { alert('Adjust is for images only'); return; }
-      const imgAdjust = await (typeof getImageAdjustSettings === 'function' ? getImageAdjustSettings() : {});
-      const cfg = {
-        autoDetect: imgAdjust.autoDetect ?? true,
-        dragEngine: imgAdjust.dragEngine || 'pointer',
-        warpEngine: imgAdjust.warpEngine || 'opencv',
-        maxLongSide: imgAdjust.maxLongSide || 2000
+      if (!rec || (rec.mime||'').startsWith('application/pdf')) { alert('Crop is for images only'); return; }
+      // Build crop UI inside modal
+      const body = modalEl.querySelector('.modal-body');
+      const viewer = body.querySelector('.receipt-viewer');
+      const thumbs = body.querySelector('#receipt-thumbs');
+      const wrap = document.createElement('div'); wrap.id = 'cropper-wrap'; wrap.className = 'edge-embed';
+      const toolbar = document.createElement('div'); toolbar.className = 'edge-embed-toolbar';
+      const btnCancel = document.createElement('button'); btnCancel.className = 'btn btn-secondary'; btnCancel.textContent = 'Cancel';
+      const btnApply = document.createElement('button'); btnApply.className = 'btn btn-custom-green'; btnApply.textContent = 'Apply';
+      toolbar.append(btnCancel, btnApply);
+      const stage = document.createElement('div'); stage.className = 'edge-embed-stage';
+      const img = document.createElement('img'); img.style.maxWidth = '100%'; img.style.maxHeight = '100%';
+      img.src = URL.createObjectURL(rec.blob);
+      stage.appendChild(img);
+      wrap.append(toolbar, stage);
+      body.insertBefore(wrap, thumbs);
+      viewer.style.display = 'none'; thumbs.style.display = 'none';
+      let cropper = null;
+      const startCrop = () => {
+        try { if (cropper) cropper.destroy(); } catch {}
+        cropper = new Cropper(img, { viewMode: 1, background: false, autoCropArea: 1, movable: false, zoomable: true, scalable: false, rotatable: false });
       };
-      const blob = await window.openReceiptEdgeEditor(rec.blob, cfg);
+      img.onload = startCrop; if (img.complete) startCrop();
+      const cleanup = () => { try { cropper?.destroy(); } catch {}; wrap.remove(); viewer.style.display=''; thumbs.style.display=''; };
+      btnCancel.onclick = () => cleanup();
+      btnApply.onclick = async () => {
+        try {
+          const canvas = cropper.getCroppedCanvas({ fillColor: '#fff' });
+          const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+          if (blob) {
+            const newId = await saveReceiptForExpense(expenseId, new File([blob], 'cropped.jpg', { type: 'image/jpeg' }));
+            try { await setCurrentReceipt(expenseId, newId); } catch {}
+            await renderReceiptModalContent(modalEl, expenseId);
+          }
+        } finally { cleanup(); }
+      };
+    } catch (e) { console.error('Cropper failed', e); }
+  };
+  const viewer = modalEl.querySelector('.receipt-viewer');
+  const thumbs = modalEl.querySelector('#receipt-thumbs');
+  // Enable/disable experimental buttons based on settings
+  try {
+    const imgAdjust = await (typeof getImageAdjustSettings === 'function' ? getImageAdjustSettings() : {});
+    const enable = !!imgAdjust.enableExperimental;
+    const cropBtn = modalEl.querySelector('#crop-image');
+    const skewBtn = modalEl.querySelector('#skew-image');
+    if (enable) { cropBtn?.classList.remove('d-none'); skewBtn?.classList.remove('d-none'); }
+    else { cropBtn?.classList.add('d-none'); skewBtn?.classList.add('d-none'); }
+  } catch {}
+
+  function editorActive() { return !!modalEl.querySelector('#embedded-crop'); }
+  function showWorking() {
+    let w = modalEl.querySelector('.modal-working');
+    if (!w) {
+      w = document.createElement('div');
+      w.className = 'modal-working';
+      w.innerHTML = '<div class="spinner-border text-secondary" role="status" aria-label="Working"></div>';
+      modalEl.querySelector('.modal-content')?.appendChild(w);
+    }
+    w.style.display = 'flex';
+    return w;
+  }
+  function hideWorking() {
+    const w = modalEl.querySelector('.modal-working');
+    if (w) w.style.display = 'none';
+  }
+  function hideViewerForEditor() {
+    viewer.dataset.prevDisplay = viewer.style.display || '';
+    thumbs.dataset.prevDisplay = thumbs.style.display || '';
+    viewer.style.display = 'none'; thumbs.style.display = 'none';
+  }
+  function restoreViewer() {
+    viewer.style.display = viewer.dataset.prevDisplay || '';
+    thumbs.style.display = thumbs.dataset.prevDisplay || '';
+  }
+  function removeEmbeddedEditor() {
+    const holder = modalEl.querySelector('#embedded-crop');
+    if (holder) holder.remove();
+  }
+
+  modalEl.querySelector('#crop-image').onclick = async () => {
+    try {
+      if (editorActive()) return; // guard 
+      const activeThumb = modalEl.querySelector('.receipt-thumb.receipt-thumb--active');
+      if (!activeThumb) return;
+      const rid = activeThumb.dataset.id;
+      const receipts = await getReceiptsByExpenseId(expenseId);
+      const rec = receipts.find(r => r.id === rid);
+      if (!rec || (rec.mime||'').startsWith('application/pdf')) { alert('Crop is for images only'); return; }
+      const imgAdjust = await (typeof getImageAdjustSettings === 'function' ? getImageAdjustSettings() : {});
+      const cfg = { autoDetect: imgAdjust.autoDetect ?? true, dragEngine: imgAdjust.dragEngine || 'pointer', warpEngine: imgAdjust.warpEngine || 'opencv', maxLongSide: imgAdjust.maxLongSide || 2000 };
+      // Embed editor inside modal body
+      const body = modalEl.querySelector('.modal-body');
+      const holder = document.createElement('div'); holder.id = 'embedded-crop';
+      body.insertBefore(holder, thumbs);
+      hideViewerForEditor();
+      const blob = await window.openReceiptEdgeEditorEmbedded(holder, rec.blob, cfg);
+      removeEmbeddedEditor(); restoreViewer();
       if (blob) {
-        const newId = await saveReceiptForExpense(expenseId, new File([blob], 'adjusted.jpg', { type: blob.type || 'image/jpeg' }));
+        const newId = await saveReceiptForExpense(expenseId, new File([blob], 'cropped.jpg', { type: blob.type || 'image/jpeg' }));
         try { await setCurrentReceipt(expenseId, newId); } catch {}
         await renderReceiptModalContent(modalEl, expenseId);
       }
-    } catch (e) { console.error('Adjust edges failed', e); }
+    } catch (e) { console.error('Crop failed', e); }
+  };
+  const skewButton = modalEl.querySelector('#skew-image');
+  if (skewButton) skewButton.onclick = async () => {
+    try {
+      if (editorActive()) { alert('Finish Crop first'); return; }
+      const activeThumb = modalEl.querySelector('.receipt-thumb.receipt-thumb--active');
+      if (!activeThumb) return;
+      const rid = activeThumb.dataset.id;
+      const receipts = await getReceiptsByExpenseId(expenseId);
+      const rec = receipts.find(r => r.id === rid);
+      if (!rec || (rec.mime||'').startsWith('application/pdf')) { alert('Skew works on images only'); return; }
+      const imgAdjust = await (typeof getImageAdjustSettings === 'function' ? getImageAdjustSettings() : {});
+      const cfg = { maxLongSide: imgAdjust.maxLongSide || 2000 };
+      // Auto-detect + warp without manual edit
+      const working = showWorking();
+      try { await (window._libLoaders?.loadOpenCV?.()); } catch {}
+      if (!window.cv) { hideWorking(); alert('Skew requires OpenCV (enable SW or be online)'); return; }
+      // Build a canvas from current image
+      const tmp = document.createElement('canvas');
+      const imgObj = await (async () => { if (window.createImageBitmap) return await createImageBitmap(rec.blob); return await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=URL.createObjectURL(rec.blob); }); })();
+      tmp.width = imgObj.width; tmp.height = imgObj.height; tmp.getContext('2d').drawImage(imgObj,0,0);
+      const fit = (w,h)=>{ const long=Math.max(w,h); const s=(imgAdjust.maxLongSide||2000)/long; return { w: Math.round(w*s), h: Math.round(h*s)}; };
+      const detPts = await (async ()=>{ const down = document.createElement('canvas'); const f=fit(tmp.width,tmp.height); down.width=f.w; down.height=f.h; down.getContext('2d').drawImage(tmp,0,0,down.width,down.height); const pts = await (async ()=>{ const d=await detectQuadOpenCV(down); if (!d) return null; // map back to original scale
+        const sx = tmp.width/down.width, sy = tmp.height/down.height; return d.map(p=>({ x:p.x*sx, y:p.y*sy })); })(); return pts; })();
+      if (!detPts) { hideWorking(); alert('Could not detect edges'); return; }
+      const outCanvas = await (async ()=>{ const w = await warpOpenCV(tmp, detPts, cfg.maxLongSide); return w; })();
+      const blob = await new Promise(r=>outCanvas.toBlob(r, 'image/jpeg', 0.9));
+      const newId = await saveReceiptForExpense(expenseId, new File([blob], 'deskewed.jpg', { type: blob.type || 'image/jpeg' }));
+      try { await setCurrentReceipt(expenseId, newId); } catch {}
+      await renderReceiptModalContent(modalEl, expenseId);
+      hideWorking();
+    } catch (e) { console.error('Skew failed', e); }
   };
   const makeCurrentBtn = document.createElement('button');
   makeCurrentBtn.type = 'button';
   makeCurrentBtn.className = 'btn btn-custom-green';
   makeCurrentBtn.id = 'make-current';
   makeCurrentBtn.textContent = 'Make Current';
-  modalEl.querySelector('.modal-footer').insertBefore(makeCurrentBtn, modalEl.querySelector('[data-bs-dismiss="modal"]'));
+  const footer = modalEl.querySelector('.modal-footer');
+  const dismissBtn = modalEl.querySelector('[data-bs-dismiss="modal"]');
+  if (footer) {
+    if (dismissBtn) footer.insertBefore(makeCurrentBtn, dismissBtn);
+    else footer.appendChild(makeCurrentBtn);
+  }
   makeCurrentBtn.onclick = async () => {
     const active = modalEl.querySelector('.receipt-thumb.receipt-thumb--active');
     if (!active) return;
@@ -1386,9 +1723,10 @@ async function renderReceiptModalContent(modalEl, expenseId) {
   if (!receipts.length) {
     mainImg.style.display = 'none';
     mainPdf.style.display = 'none';
+    if (mainCanvas) mainCanvas.style.display = 'none';
     return;
   }
-  const urls = receipts.map(r => ({ id: r.id, url: URL.createObjectURL(r.blob), mime: r.mime || '', current: !!r.current }));
+  const urls = receipts.map(r => ({ id: r.id, url: URL.createObjectURL(r.blob), mime: r.mime || '', current: !!r.current, blob: r.blob }));
   const setActive = (id) => {
     thumbs.querySelectorAll('.receipt-thumb').forEach(el => el.classList.toggle('receipt-thumb--active', el.dataset.id === id));
     const u = urls.find(x => x.id === id);
@@ -1410,10 +1748,24 @@ async function renderReceiptModalContent(modalEl, expenseId) {
         mainPdf.src = u.url;
       }
     } else {
-      mainCanvas.style.display = 'none';
+      // Draw image onto canvas with white background to avoid black transparency
       mainPdf.style.display = 'none';
-      mainImg.style.display = 'block';
-      mainImg.src = u.url;
+      mainImg.style.display = 'none';
+      mainCanvas.style.display = 'block';
+      (async () => {
+        try {
+          const bmp = await (window.createImageBitmap ? createImageBitmap(u.blob) : Promise.reject('no cib'));
+          mainCanvas.width = bmp.width; mainCanvas.height = bmp.height;
+          const ctx = mainCanvas.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0,0,mainCanvas.width, mainCanvas.height);
+          ctx.drawImage(bmp, 0, 0);
+        } catch (e) {
+          // Fallback to <img>
+          mainCanvas.style.display = 'none';
+          mainImg.style.display = 'block';
+          mainImg.src = u.url;
+        }
+      })();
     }
   };
   urls.forEach((u, idx) => {
@@ -1428,11 +1780,47 @@ async function renderReceiptModalContent(modalEl, expenseId) {
         renderPdfThumb(u.blob, c).catch(()=>{ c.replaceWith(document.createTextNode('PDF')); });
         t.appendChild(c);
       } else {
-        t.innerHTML = `<div style=\"height:64px;display:flex;align-items:center;justify-content:center;min-width:48px;\">PDF</div>`;
+        const ph = document.createElement('div');
+        ph.style.cssText = 'height:64px;display:flex;align-items:center;justify-content:center;min-width:48px;';
+        ph.textContent = 'PDF';
+        t.appendChild(ph);
       }
     } else {
-      t.innerHTML = `<img src=\"${u.url}\" alt=\"Receipt ${idx+1}\">`;
+      const imgEl = document.createElement('img');
+      imgEl.alt = `Receipt ${idx+1}`;
+      imgEl.src = u.url;
+      imgEl.onerror = async () => {
+        try {
+          // Fallback: decode and re-encode to data URL
+          const bmp = await (window.createImageBitmap ? createImageBitmap(u.blob) : Promise.reject('no cib'));
+          const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+          const cctx = c.getContext('2d');
+          cctx.fillStyle = '#fff'; cctx.fillRect(0,0,c.width,c.height);
+          cctx.drawImage(bmp,0,0);
+          imgEl.src = c.toDataURL('image/png');
+        } catch {
+          imgEl.replaceWith(document.createTextNode('Image failed'));
+        }
+      };
+      t.appendChild(imgEl);
     }
+    // Delete button
+    const del = document.createElement('div');
+    del.className = 'receipt-thumb-delete';
+    del.title = 'Delete';
+    del.textContent = '×';
+    del.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const ok = confirm('Delete this receipt?');
+      if (!ok) return;
+      try {
+        await deleteReceiptById(u.id);
+        await renderReceiptModalContent(modalEl, expenseId);
+      } catch (e) {
+        console.error('Delete failed', e);
+      }
+    });
+    t.appendChild(del);
     t.addEventListener('click', () => setActive(u.id));
     thumbs.appendChild(t);
   });
@@ -1440,8 +1828,26 @@ async function renderReceiptModalContent(modalEl, expenseId) {
   setActive(current.id);
 
   // Revoke object URLs when modal hides
+  modalEl.addEventListener('hide.bs.modal', () => {
+    // Proactively detach sources before revoking to avoid WebKitBlobResource errors
+    try {
+      mainImg.src = '';
+      mainPdf.src = '';
+      if (mainCanvas) { const ctx = mainCanvas.getContext('2d'); ctx && ctx.clearRect(0,0,mainCanvas.width, mainCanvas.height); }
+    } catch {}
+  });
   modalEl.addEventListener('hidden.bs.modal', () => {
-    urls.forEach(u => URL.revokeObjectURL(u.url));
+    // Revoke after hide, allowing any pending loads to cancel
+    try { setTimeout(() => urls.forEach(u => URL.revokeObjectURL(u.url)), 0); } catch {}
+    // If no receipts remain, reset icon state to grey
+    (async () => {
+      try {
+        const remaining = await getReceiptsByExpenseId(expenseId);
+        if (!remaining || !remaining.length) {
+          document.querySelector(`[data-expense-id="${expenseId}"] .expense-receipt-icon`)?.classList.remove('has-receipt');
+        }
+      } catch {}
+    })();
   }, { once: true });
 }
 
@@ -1497,7 +1903,38 @@ async function renderExpenseList(tripId, selectedExpenseId = null) {
     document.addEventListener('click', expenseDeselectHandler, true);
     return;
   }
-  expenses.forEach(exp => container.appendChild(buildExpenseCard(exp, exp.id === currentSelectedExpenseId)));
+  const byPos = (a,b) => {
+    const ap = Number.isFinite(a.position) ? a.position : Number.POSITIVE_INFINITY;
+    const bp = Number.isFinite(b.position) ? b.position : Number.POSITIVE_INFINITY;
+    if (ap !== bp) return ap - bp;
+    const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return ad - bd;
+  };
+  expenses.filter(e=>!e.archived).sort(byPos).forEach(exp => container.appendChild(buildExpenseCard(exp, exp.id === currentSelectedExpenseId)));
+
+  // Archive drop zone
+  const archiveSection = document.createElement('section');
+  archiveSection.className = 'mt-3';
+  archiveSection.innerHTML = `
+    <h6 class="mb-2 text-placeholder" id="archive-open" style="cursor:pointer;">Archived</h6>
+    <div id="archive-drop" class="drop-zone drop-zone--archive">Drop here to archive</div>
+  `;
+  container.appendChild(archiveSection);
+  archiveSection.querySelector('#archive-open').addEventListener('click', ()=> renderArchivedExpenses(tripId));
+  const drop = archiveSection.querySelector('#archive-drop');
+  drop.addEventListener('dragover', (e)=>{ e.preventDefault(); drop.style.background='#f8f9fa'; });
+  drop.addEventListener('dragleave', ()=>{ drop.style.background=''; });
+  drop.addEventListener('drop', async (e)=>{
+    e.preventDefault(); drop.style.background='';
+    const id = e.dataTransfer.getData('text/expense-id');
+    if (!id) return;
+    const exp = (await getExpensesByTripId(tripId)).find(x=>x.id===id);
+    if (!exp) return;
+    exp.archived = true;
+    await saveExpense(exp);
+    await renderExpenseList(tripId, null);
+  });
 
   // Install outside-click deselect handler
   if (expenseDeselectHandler) document.removeEventListener('click', expenseDeselectHandler, true);
@@ -1511,6 +1948,36 @@ async function renderExpenseList(tripId, selectedExpenseId = null) {
     }
   };
   document.addEventListener('click', expenseDeselectHandler, true);
+
+  // Enable SortableJS for expenses (supports iOS long-press drag)
+  try {
+    new Sortable(container, {
+      animation: 150,
+      handle: undefined,
+      draggable: '.expense-card',
+      filter: '#add-expense-card, section',
+      delay: 150,
+      delayOnTouchOnly: true,
+      onEnd: async () => { await syncExpenseOrderFromDOM(tripId); }
+    });
+  } catch (e) { console.warn('Sortable init failed for expenses', e); }
+}
+
+async function syncExpenseOrderFromDOM(tripId) {
+  const container = document.getElementById('expense-list-container');
+  if (!container) return;
+  const items = Array.from(container.querySelectorAll('.expense-card'));
+  for (let i=0;i<items.length;i++) {
+    const id = items[i].dataset.expenseId;
+    if (!id) continue;
+    try {
+      const all = await getExpensesByTripId(tripId);
+      const exp = all.find(e=>e.id===id);
+      if (!exp) continue;
+      exp.position = i;
+      await saveExpense(exp);
+    } catch {}
+  }
 }
 
 async function selectExpense(expenseId) {
@@ -1553,4 +2020,223 @@ function hideModal(modalId) {
   if (modal) {
     modal.hide();
   }
+}
+
+async function renderArchivedExpenses(tripId) {
+  const trip = await getTripById(tripId);
+  const app = document.getElementById('app');
+  const icons = await loadIconSettings();
+  app.innerHTML = `
+    <div class="container">
+      <div class="card card-uniform-height text-white btn-custom-green">
+        <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
+          <button id="back-to-trip" class="btn text-white btn-no-style header-btn-left" aria-label="Back"><i class="bi ${icons.home} home-icon"></i></button>
+          <h4 class="header-title">${escapeHTML(trip.name)}</h4>
+          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi ${icons.cog} home-icon"></i></button>
+        </div>
+      </div>
+      <main id="archived-list-container" data-trip-id="${tripId}">
+        <section class="mb-3">
+          <h6 class="mb-2 text-placeholder">Archived</h6>
+          <div id="archived-expenses"></div>
+        </section>
+      </main>
+    </div>
+  `;
+  const container = document.getElementById('archived-expenses');
+  const all = await getExpensesByTripId(tripId);
+  const archived = all.filter(e=>e.archived);
+  if (!archived.length) {
+    container.innerHTML = '<p class="text-center text-placeholder">No archived expenses</p>';
+  } else {
+    archived.forEach(exp => {
+      const card = buildExpenseCard(exp, false);
+      card.draggable = true;
+      card.addEventListener('dragstart', (e)=>{ e.dataTransfer?.setData('text/archived-expense-id', exp.id); e.dataTransfer.effectAllowed='move'; });
+      container.appendChild(card);
+    });
+    const dzWrap = document.createElement('div'); dzWrap.className='mt-3';
+    dzWrap.innerHTML = `
+      <div class="drop-zone drop-zone--unarchive" id="unarchive-drop">Drop here to unarchive</div>
+      <div class="mt-2 drop-zone drop-zone--delete" id="delete-drop">Drop here to delete</div>
+    `;
+    container.parentElement.appendChild(dzWrap);
+    const unDz = document.getElementById('unarchive-drop');
+    const delDz = document.getElementById('delete-drop');
+    [unDz, delDz].forEach(dz => {
+      dz.addEventListener('dragover', (e)=>{ e.preventDefault(); dz.style.background='#f8f9fa'; });
+      dz.addEventListener('dragleave', ()=>{ dz.style.background=''; });
+    });
+    unDz.addEventListener('drop', async (e)=>{
+      e.preventDefault(); unDz.style.background='';
+      const id = e.dataTransfer.getData('text/archived-expense-id'); if (!id) return;
+      const all = await getExpensesByTripId(tripId); const exp = all.find(x=>x.id===id); if (!exp) return;
+      exp.archived = false; await saveExpense(exp); await renderArchivedExpenses(tripId);
+    });
+    delDz.addEventListener('drop', async (e)=>{
+      e.preventDefault(); delDz.style.background='';
+      const id = e.dataTransfer.getData('text/archived-expense-id'); if (!id) return;
+      if (!confirm('Delete this expense and its receipts?')) return;
+      await deleteReceiptsByExpenseId(id); await deleteExpenseById(id); await renderArchivedExpenses(tripId);
+    });
+  }
+  document.getElementById('back-to-trip').addEventListener('click', ()=>renderTripDetail(tripId));
+  document.getElementById('settings-btn').addEventListener('click', renderSettingsPage);
+}
+async function loadReceiptViewerSettings() {
+  const saved = await (typeof getReceiptViewerSettings==='function' ? getReceiptViewerSettings() : {});
+  const defaultMode = (window.FEATURES && window.FEATURES.RECEIPT_VIEWER_MODE) || 'modal';
+  return { mode: defaultMode, ...(saved||{}) };
+}
+
+async function openReceiptViewer(expenseId) {
+  const set = await loadReceiptViewerSettings();
+  if (set.mode === 'page') {
+    await renderReceiptPage(expenseId);
+  } else {
+    await showReceiptModal(expenseId);
+  }
+}
+
+async function renderReceiptPage(expenseId) {
+  // Find parent trip via expense
+  let tripId = null;
+  let expenseRef = null;
+  try { expenseRef = await (typeof getExpenseById==='function' ? getExpenseById(expenseId) : null); tripId = expenseRef?.tripId || null; } catch {}
+  const trip = tripId ? await getTripById(tripId) : { name: 'Receipts' };
+  const app = document.getElementById('app');
+  const icons = await loadIconSettings();
+  app.innerHTML = `
+    <div class="container">
+      <div class="card card-uniform-height text-white btn-custom-green">
+        <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
+          <button id="back-to-trip" class="btn text-white btn-no-style header-btn-left" aria-label="Back"><i class="bi ${icons.home} home-icon"></i></button>
+          <h4 class="header-title">${escapeHTML(trip?.name || 'Receipts')}</h4>
+          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi ${icons.cog} home-icon"></i></button>
+        </div>
+      </div>
+      <main id="receipt-page" class="mt-3" data-expense-id="${expenseId}">
+        <div class="receipt-viewer" style="background:#fff;">
+          <img id="rp-main-img" alt="Receipt" style="display:none;" />
+          <iframe id="rp-main-pdf" title="Receipt PDF" style="display:none; width:100%; height:60vh; border:0;"></iframe>
+        </div>
+        <div class="receipt-thumbs mt-2" id="rp-thumbs"></div>
+        <div class="d-flex gap-2 mt-2">
+          <button type="button" class="btn btn-secondary" id="rp-retake">Retake / Add</button>
+          <button type="button" class="btn btn-secondary" id="rp-crop">Crop</button>
+          <button type="button" class="btn btn-custom-green" id="rp-make-current">Make Current</button>
+        </div>
+      </main>
+    </div>
+  `;
+  document.getElementById('back-to-trip').addEventListener('click', ()=>tripId?renderTripDetail(tripId):renderTrips());
+  document.getElementById('settings-btn').addEventListener('click', renderSettingsPage);
+
+  // Reuse modal content logic adapted for page IDs
+  const mainImg = document.getElementById('rp-main-img');
+  const mainPdf = document.getElementById('rp-main-pdf');
+  const viewer = document.querySelector('#receipt-page .receipt-viewer');
+  let mainCanvas = viewer.querySelector('#rp-main-canvas');
+  if (!mainCanvas) { mainCanvas = document.createElement('canvas'); mainCanvas.id='rp-main-canvas'; mainCanvas.style.display='none'; mainCanvas.style.maxWidth='100%'; mainCanvas.style.maxHeight='60vh'; viewer.appendChild(mainCanvas); }
+  const thumbs = document.getElementById('rp-thumbs');
+  thumbs.innerHTML='';
+  const receipts = await getReceiptsByExpenseId(expenseId);
+  if (!receipts.length) { mainImg.style.display='none'; mainPdf.style.display='none'; mainCanvas.style.display='none'; thumbs.innerHTML='<p class=\"text-placeholder\">No receipts yet</p>'; return; }
+  const urls = await Promise.all(receipts.map(async r => {
+    const mime = r.mime || '';
+    if (mime.startsWith('application/pdf')) {
+      return { id: r.id, url: URL.createObjectURL(r.blob), mime, current: !!r.current, blob: r.blob };
+    } else {
+      const dataUrl = await blobToWhiteDataURL(r.blob).catch(async ()=> await blobToDataURL(r.blob));
+      return { id: r.id, url: dataUrl, mime, current: !!r.current, blob: r.blob };
+    }
+  }));
+  const setActive = (id)=>{
+    thumbs.querySelectorAll('.receipt-thumb').forEach(el=>el.classList.toggle('receipt-thumb--active', el.dataset.id===id));
+    const u = urls.find(x=>x.id===id); if(!u) return;
+    if ((u.mime||'').startsWith('application/pdf')) {
+      mainImg.style.display='none'; mainPdf.style.display='none'; mainCanvas.style.display='block';
+      renderPdfToCanvas(u.blob, mainCanvas).catch(()=>{ mainCanvas.style.display='none'; mainPdf.style.display='block'; mainPdf.src=u.url; });
+    } else {
+      mainPdf.style.display='none'; mainImg.style.display='none'; mainCanvas.style.display='block';
+      (async()=>{ try{ const bmp= await (window.createImageBitmap?createImageBitmap(u.blob):Promise.reject('no cib')); mainCanvas.width=bmp.width; mainCanvas.height=bmp.height; const ctx=mainCanvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,mainCanvas.width,mainCanvas.height); ctx.drawImage(bmp,0,0);} catch(e){ mainCanvas.style.display='none'; mainImg.style.display='block'; mainImg.src=u.url; } })();
+    }
+  };
+  urls.forEach((u,idx)=>{
+    const t=document.createElement('div'); t.className='receipt-thumb'; t.dataset.id=u.id;
+    if ((u.mime||'').startsWith('application/pdf')) { t.classList.add('receipt-thumb--pdf'); const c=document.createElement('canvas'); c.height=64; c.width=48; renderPdfThumb(u.blob,c).catch(()=>{ c.replaceWith(document.createTextNode('PDF')); }); t.appendChild(c);} else { const imgEl=document.createElement('img'); imgEl.alt=`Receipt ${idx+1}`; imgEl.src=u.url; imgEl.onerror=async()=>{ try{ const bmp= await (window.createImageBitmap?createImageBitmap(u.blob):Promise.reject('no cib')); const c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height; const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(bmp,0,0); imgEl.src=c.toDataURL('image/png'); } catch { imgEl.replaceWith(document.createTextNode('Image failed')); } }; t.appendChild(imgEl);} 
+    const del=document.createElement('div'); del.className='receipt-thumb-delete'; del.title='Delete'; del.textContent='×'; del.addEventListener('click', async(ev)=>{ ev.stopPropagation(); if(!confirm('Delete this receipt?')) return; await deleteReceiptById(u.id); await renderReceiptPage(expenseId); }); t.appendChild(del);
+    t.addEventListener('click', ()=> setActive(u.id)); thumbs.appendChild(t);
+  });
+  const current = urls.find(u=>u.current) || urls[0]; setActive(current.id);
+  document.getElementById('rp-make-current').onclick = async ()=>{
+    const btn = document.getElementById('rp-make-current');
+    btn.disabled = true;
+    try {
+      const active=thumbs.querySelector('.receipt-thumb.receipt-thumb--active');
+      if(!active) return;
+      await setCurrentReceipt(expenseId, active.dataset.id);
+      // Exit viewer after making current
+      if (tripId) await renderTripDetail(tripId); else await renderTrips();
+    } catch (e) {
+      console.error('Make Current failed', e);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+  document.getElementById('rp-retake').onclick = ()=> openReceiptActionSheet(expenseId, document.querySelector(`[data-expense-id="${expenseId}"] .expense-receipt-icon`));
+  document.getElementById('rp-crop').onclick = async ()=>{
+    const active=thumbs.querySelector('.receipt-thumb.receipt-thumb--active'); if(!active) return; const rec=(await getReceiptsByExpenseId(expenseId)).find(r=>r.id===active.dataset.id); if(!rec || (rec.mime||'').startsWith('application/pdf')) { alert('Crop is for images only'); return; }
+    // Simple CropperJS inline
+    const stage = viewer; const img=document.createElement('img'); img.style.maxWidth='100%'; img.style.maxHeight='60vh'; img.src=URL.createObjectURL(rec.blob); stage.innerHTML=''; stage.appendChild(img); const bar=document.createElement('div'); bar.className='mt-2 d-flex gap-2'; const cancel=document.createElement('button'); cancel.className='btn btn-secondary'; cancel.textContent='Cancel'; const autoBtn=document.createElement('button'); autoBtn.className='btn btn-secondary'; autoBtn.textContent='Auto'; const apply=document.createElement('button'); apply.className='btn btn-custom-green'; apply.textContent='Apply'; bar.append(cancel,autoBtn,apply); stage.parentElement.insertBefore(bar, thumbs);
+    let cropper=null; const start=()=>{ try{ cropper&&cropper.destroy(); }catch{} cropper=new Cropper(img,{viewMode:1,background:false,autoCropArea:1,movable:false,zoomable:true,scalable:false,rotatable:false}); }; img.onload=start; if(img.complete) start();
+    const cleanup=()=>{ try{ cropper&&cropper.destroy(); }catch{} bar.remove(); stage.innerHTML=''; const canvas=document.createElement('canvas'); canvas.id='rp-main-canvas'; canvas.style.maxWidth='100%'; canvas.style.maxHeight='60vh'; stage.appendChild(canvas); };
+    cancel.onclick= async ()=>{ cleanup(); await renderReceiptPage(expenseId); };
+    autoBtn.onclick = async ()=>{
+      try {
+        await (window._libLoaders?.loadOpenCV?.());
+        if (!(window.cv && window.cv.Mat)) throw new Error('OpenCV not loaded');
+        // Draw full-size image to canvas for detection
+        const dc=document.createElement('canvas');
+        const tmpImg = new Image();
+        tmpImg.onload=async()=>{
+          dc.width=tmpImg.naturalWidth; dc.height=tmpImg.naturalHeight; const dctx=dc.getContext('2d'); dctx.drawImage(tmpImg,0,0);
+          // Detect quad
+          const src = cv.imread(dc);
+          try {
+            const gray=new cv.Mat(); cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
+            const blur=new cv.Mat(); cv.GaussianBlur(gray,blur,new cv.Size(5,5),0);
+            const edges=new cv.Mat(); cv.Canny(blur,edges,50,150);
+            const contours=new cv.MatVector(); const hierarchy=new cv.Mat();
+            cv.findContours(edges,contours,hierarchy,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
+            let best=null, bestArea=0; const approx=new cv.Mat();
+            for(let i=0;i<contours.size();i++){ const c=contours.get(i); const peri=cv.arcLength(c,true); cv.approxPolyDP(c,approx,0.02*peri,true); if(approx.rows===4){ const area=cv.contourArea(approx); if(area>bestArea){ bestArea=area; best=[]; for(let j=0;j<4;j++) best.push({x: approx.intPtr(j,0)[0], y: approx.intPtr(j,0)[1]}); } } c.delete(); }
+            approx.delete(); contours.delete(); hierarchy.delete(); edges.delete(); blur.delete(); gray.delete();
+            if (best) {
+              // Compute bounding box and set crop box
+              const xs=best.map(p=>p.x), ys=best.map(p=>p.y);
+              const x=Math.max(0,Math.min(...xs)), y=Math.max(0,Math.min(...ys));
+              const w=Math.min(dc.width,Math.max(...xs))-x, h=Math.min(dc.height,Math.max(...ys))-y;
+              cropper.setData({ x, y, width: w, height: h });
+            } else {
+              alert('No edges detected');
+            }
+          } finally { src.delete(); }
+        };
+        tmpImg.src = img.src;
+      } catch (e) { console.warn('Auto detect failed', e); alert('Auto detect unavailable'); }
+    };
+    apply.onclick=async()=>{ try{ const c= cropper.getCroppedCanvas({ fillColor:'#fff' }); const blob= await new Promise(res=>c.toBlob(res,'image/jpeg',0.92)); if(blob){ const newId= await saveReceiptForExpense(expenseId, new File([blob],'cropped.jpg',{type:'image/jpeg'})); await setCurrentReceipt(expenseId, newId); } } finally { await renderReceiptPage(expenseId); } };
+  };
+}
+
+
+async function blobToWhiteDataURL(blob) {
+  const bmp = await (window.createImageBitmap ? createImageBitmap(blob) : Promise.reject('no createImageBitmap'));
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(bmp,0,0);
+  return c.toDataURL('image/png');
+}
+async function blobToDataURL(blob) {
+  return await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
 }

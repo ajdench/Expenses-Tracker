@@ -18,22 +18,22 @@ test.describe('Trips shadow add card and inline editor', () => {
   test('Add a new trip via shadow card inline editor', async ({ page }) => {
     await gotoBase(page);
 
-    // Ensure Active container and shadow card exist
-    await expect(page.locator(activeContainer)).toBeVisible();
-    await expect(page.locator(addTripCard)).toBeVisible();
+  // Ensure Active container and shadow card exist
+  await expect(page.locator(activeContainer)).toBeVisible();
+  await expect(page.locator(addTripCard)).toBeVisible();
 
-    // Shadow state: read-only grey input with value "Trip"
-    const shadowInput = page.locator(`${addTripCard} input#new-trip-name`);
-    await expect(shadowInput).toHaveAttribute('readonly', '');
-    await expect(shadowInput).toHaveValue('Trip');
+  // Shadow state: read-only input (aria-label "Trip name") with value "Trip"
+  const shadowInput = page.locator(`${addTripCard} input[aria-label="Trip name"]`);
+  await expect(shadowInput).toHaveAttribute('readonly', '');
+  await expect(shadowInput).toHaveValue('Trip');
 
-    // Enter edit mode by clicking input (same as pressing Add)
-    await shadowInput.click();
+  // Enter edit mode by clicking input (same as pressing Add)
+  await shadowInput.click();
 
-    // Editor appears: input enabled, Save/Cancel buttons present
-    const editorInput = page.locator(`${addTripCard} input#new-trip-name`);
-    await expect(editorInput).toBeEditable();
-    await editorInput.fill(tripName);
+  // Editor appears: input enabled, Save/Cancel buttons present
+  const editorInput = page.locator(`${addTripCard} input#new-trip-name`);
+  await expect(editorInput).toBeEditable();
+  await editorInput.fill(tripName);
 
     const saveBtn = page.locator(`${addTripCard} button`, { hasText: 'Save' });
     await expect(saveBtn).toBeVisible();
@@ -64,9 +64,9 @@ test.describe('Expenses shadow add card and inline editor', () => {
 
     // Open detail via double-click and wait for expense container
     const tripCard = page.locator(`${activeContainer} .trip-card:has(.card-title:has-text(\"${tripName}\"))`);
-    await tripCard.locator('.view-details-btn').click();
+    await tripCard.dblclick();
     // Wait for trip detail header to appear
-    await expect(page.locator('.card.bg-success .card-header h1', { hasText: tripName })).toBeVisible();
+    await expect(page.locator('.header-title', { hasText: tripName })).toBeVisible();
     await expect(page.locator('#expense-list-container')).toBeVisible();
 
     // Shadow expense card at top
@@ -87,7 +87,7 @@ test.describe('Expenses shadow add card and inline editor', () => {
     await page.click('#save-expense');
 
     // Verify expense card appears
-    const expenseCard = page.locator('.card .card-body h5', { hasText: expenseDesc });
+    const expenseCard = page.locator('.expense-description', { hasText: expenseDesc });
     await expect(expenseCard).toBeVisible();
   });
 });

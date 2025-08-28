@@ -1,0 +1,1 @@
+After signing on macOS, place your signed 'Scan to MyApp.shortcut' in this folder.

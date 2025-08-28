@@ -158,6 +158,39 @@ async function saveScanSettings(map) {
   }
 }
 
+// Capture sources settings
+async function getCaptureSettings() {
+  try {
+    const record = await db.get('settings', 'capture');
+    return record?.value || {};
+  } catch (e) { return {}; }
+}
+async function saveCaptureSettings(map) {
+  try { await db.put('settings', { key: 'capture', value: map }); } catch (e) { console.error(e); }
+}
+
+// Receipt viewer settings
+async function getReceiptViewerSettings() {
+  try {
+    const record = await db.get('settings', 'receiptViewer');
+    return record?.value || {};
+  } catch (e) { return {}; }
+}
+async function saveReceiptViewerSettings(map) {
+  try { await db.put('settings', { key: 'receiptViewer', value: map }); } catch (e) { console.error(e); }
+}
+
+// Trip swipe settings
+async function getTripSwipeSettings() {
+  try {
+    const record = await db.get('settings', 'tripSwipes');
+    return record?.value || {};
+  } catch (e) { return {}; }
+}
+async function saveTripSwipeSettings(map) {
+  try { await db.put('settings', { key: 'tripSwipes', value: map }); } catch (e) { console.error(e); }
+}
+
 // Receipt helpers
 async function saveReceiptForExpense(expenseId, file) {
   const id = `${expenseId}-${Date.now()}`;
@@ -177,7 +210,9 @@ async function saveReceiptForExpense(expenseId, file) {
 async function getImageAdjustSettings() {
   try {
     const record = await db.get('settings', 'imageAdjust');
-    return record?.value || {};
+    const v = record?.value || {};
+    if (typeof v.enableExperimental === 'undefined') v.enableExperimental = false;
+    return v;
   } catch (e) { return {}; }
 }
 async function saveImageAdjustSettings(map) {
@@ -189,6 +224,15 @@ async function getReceiptsByExpenseId(expenseId) {
     return await db.getAllFromIndex('receipts', 'by_expenseId', expenseId);
   } catch (e) {
     return [];
+  }
+}
+
+async function deleteReceiptById(id) {
+  try {
+    return await db.delete('receipts', id);
+  } catch (e) {
+    console.error('[DB] deleteReceiptById error', e);
+    throw e;
   }
 }
 
@@ -204,6 +248,27 @@ async function setCurrentReceipt(expenseId, receiptId) {
   await tx.done;
 }
 
+async function deleteReceiptsByExpenseId(expenseId) {
+  try {
+    const tx = db.transaction('receipts', 'readwrite');
+    const store = tx.objectStore('receipts');
+    const idx = store.index('by_expenseId');
+    const all = await idx.getAll(expenseId);
+    for (const r of all) await store.delete(r.id);
+    await tx.done;
+  } catch (e) {
+    console.error('[DB] deleteReceiptsByExpenseId error', e);
+  }
+}
+
+async function deleteExpenseById(id) {
+  try {
+    return await db.delete('expenses', id);
+  } catch (e) {
+    console.error('[DB] deleteExpenseById error', e);
+    throw e;
+  }
+}
 // Danger: Delete all domain content (trips, expenses, receipts)
 async function deleteAllContent() {
   try {

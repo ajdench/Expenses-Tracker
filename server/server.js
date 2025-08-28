@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { nanoid } from "nanoid";
+import cors from "cors";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.use(cors({ origin: /http:\/\/localhost:3000$/ }));
 const uploadsDir = path.join(__dirname, "uploads");
 fs.mkdirSync(uploadsDir, { recursive: true });
 const upload = multer({ dest: uploadsDir });
@@ -49,4 +51,3 @@ app.get("/files/:id", (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Scan API on http://localhost:${PORT}`));
-

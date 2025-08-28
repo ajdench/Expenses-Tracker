@@ -322,4 +322,65 @@
   }
 
   window.openReceiptEdgeEditor = openReceiptEdgeEditor;
+  
+  // Embedded editor (renders inside a provided container within the modal)
+  window.openReceiptEdgeEditorEmbedded = async function(container, blob, options={}) {
+    const cfg = { ...DEFAULTS, ...(options||{}) };
+    const wrap = createEl('div', { class: 'edge-embed' });
+    const toolbar = createEl('div', { class: 'edge-embed-toolbar' });
+    const btnCancel = createEl('button', { class: 'btn btn-secondary' }); btnCancel.textContent = 'Cancel';
+    const btnReset = createEl('button', { class: 'btn btn-secondary' }); btnReset.textContent = 'Reset';
+    const btnRotate = createEl('button', { class: 'btn btn-secondary' }); btnRotate.textContent = 'Rotate 90°';
+    const btnApply = createEl('button', { class: 'btn btn-custom-green' }); btnApply.textContent = 'Apply';
+    toolbar.append(btnCancel, btnReset, btnRotate, btnApply);
+    const stage = createEl('div', { class: 'edge-embed-stage' });
+    const base = createEl('canvas', { class: 'edge-embed-canvas' });
+    const overlay = createEl('canvas', { class: 'edge-embed-overlay' });
+    stage.append(base, overlay);
+    wrap.append(toolbar, stage);
+    container.appendChild(wrap);
+
+    const img = await decodeImageToBitmap(blob);
+    const fit = fitRect(img.width, img.height, Math.max(cfg.maxLongSide || 2000, 1200));
+    base.width = fit.w; base.height = fit.h; overlay.width = fit.w; overlay.height = fit.h;
+    const bctx = base.getContext('2d'); bctx.drawImage(img, 0,0, base.width, base.height);
+    const octx = overlay.getContext('2d');
+
+    let zoom = 1; let panX = 0, panY = 0;
+    function applyViewTransform(){ const t=`translate(${panX}px, ${panY}px) scale(${zoom})`; base.style.transform=t; overlay.style.transform=t; base.style.transformOrigin = overlay.style.transformOrigin = '0 0'; }
+    applyViewTransform();
+
+    let pts = [ {x: base.width*0.1, y: base.height*0.1}, {x: base.width*0.9, y: base.height*0.1}, {x: base.width*0.9, y: base.height*0.9}, {x: base.width*0.1, y: base.height*0.9} ];
+    if (cfg.autoDetect !== false) {
+      try { if (cfg.warpEngine !== 'canvas') await (window._libLoaders?.loadOpenCV?.()); const det = await detectQuadOpenCV(base); if (det) pts = det; } catch {}
+    }
+    function render(){ octx.clearRect(0,0,overlay.width, overlay.height); drawOverlay(octx, pts); }
+    render();
+
+    function toCanvasCoords(clientX, clientY){ const r = overlay.getBoundingClientRect(); const sx = overlay.width/r.width; const sy = overlay.height/r.height; return { x:(clientX-r.left)*sx, y:(clientY-r.top)*sy }; }
+    function getClientXY(evt){ if (evt.touches && evt.touches.length) return { x: evt.touches[0].clientX, y: evt.touches[0].clientY }; return { x: evt.clientX, y: evt.clientY }; }
+    function hitTest(x,y){ for(let i=0;i<4;i++){ const dx=x-pts[i].x, dy=y-pts[i].y; if (dx*dx+dy*dy<=144) return i; } return -1; }
+    let dragging=-1, panning=false, pinching=false, lastPan={cx:0,cy:0}, lastDist=0;
+    const active = new Map();
+    function onDown(e){ const pt=getClientXY(e); const {x,y}=toCanvasCoords(pt.x,pt.y); dragging=hitTest(x,y); if (dragging<0){ panning=true; lastPan={cx:pt.x,cy:pt.y}; } if (dragging>=0) e.preventDefault(); }
+    function onMove(e){ const pt=getClientXY(e); if (dragging>=0){ const {x,y}=toCanvasCoords(pt.x,pt.y); pts[dragging].x=Math.max(0,Math.min(overlay.width,x)); pts[dragging].y=Math.max(0,Math.min(overlay.height,y)); render(); drawLoupe(octx, base, pts[dragging].x, pts[dragging].y); } else if (panning && !pinching){ panX += (pt.x-lastPan.cx); panY += (pt.y-lastPan.cy); lastPan={cx:pt.x,cy:pt.y}; applyViewTransform(); } }
+    function onUp(){ dragging=-1; panning=false; render(); }
+    overlay.addEventListener('pointerdown', onDown); overlay.addEventListener('pointermove', onMove); overlay.addEventListener('pointerup', onUp); overlay.addEventListener('pointercancel', onUp);
+    overlay.addEventListener('touchstart', (e)=>{ e.preventDefault(); onDown(e); }, { passive: false }); overlay.addEventListener('touchmove', (e)=>{ e.preventDefault(); onMove(e); }, { passive: false }); overlay.addEventListener('touchend', onUp);
+    overlay.addEventListener('mousedown', onDown); overlay.addEventListener('mousemove', onMove); overlay.addEventListener('mouseup', onUp);
+    overlay.addEventListener('pointerdown', (e)=>{ overlay.setPointerCapture(e.pointerId); active.set(e.pointerId,{x:e.clientX,y:e.clientY}); if (active.size===2){ pinching=true; const a=[...active.values()]; lastDist=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); } });
+    overlay.addEventListener('pointermove', (e)=>{ if (!active.has(e.pointerId)) return; active.set(e.pointerId,{x:e.clientX,y:e.clientY}); if (pinching){ const a=[...active.values()]; const dist=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); const factor=dist/lastDist||1; const prev=zoom; zoom=Math.max(0.5,Math.min(4, zoom*factor)); lastDist=dist; applyViewTransform(); } });
+    overlay.addEventListener('pointerup', (e)=>{ active.delete(e.pointerId); if (active.size<2) pinching=false; });
+    overlay.addEventListener('wheel', (e)=>{ e.preventDefault(); const delta=-Math.sign(e.deltaY)*0.1; zoom=Math.max(0.5,Math.min(4, zoom+delta)); applyViewTransform(); }, { passive:false });
+
+    btnRotate.onclick = ()=>{ const src=createEl('canvas'); src.width=base.width; src.height=base.height; src.getContext('2d').drawImage(base,0,0); const newW=base.height, newH=base.width; base.width=newW; base.height=newH; overlay.width=newW; overlay.height=newH; const ctx=base.getContext('2d'); ctx.save(); ctx.translate(newW,0); ctx.rotate(Math.PI/2); ctx.drawImage(src,0,0); ctx.restore(); const oldW=src.width, oldH=src.height; pts = pts.map(p=>({ x: oldH - p.y, y: p.x })); zoom=1; panX=0; panY=0; applyViewTransform(); render(); };
+
+    function cleanup(){ overlay.replaceWith(overlay.cloneNode(true)); container.removeChild(wrap); }
+
+    return new Promise((resolve)=>{
+      btnCancel.onclick = ()=>{ cleanup(); resolve(null); };
+      btnReset.onclick = async ()=>{ try { if (cfg.warpEngine!=='canvas') await (window._libLoaders?.loadOpenCV?.()); const det=await detectQuadOpenCV(base); if (det) { pts=det; render(); } } catch{} };
+      btnApply.onclick = async ()=>{ try { let out; if (cfg.warpEngine==='opencv'){ await (window._libLoaders?.loadOpenCV?.()); out = await warpOpenCV(base, pts, cfg.maxLongSide||2000); } else { out = warpCanvasAxisAligned(base, pts, cfg.maxLongSide||2000); } out.toBlob(b=>{ cleanup(); resolve(b); }, 'image/jpeg', 0.9); } catch(e){ console.error(e); alert('Failed to process image'); } };
+    });
+  };
 })();

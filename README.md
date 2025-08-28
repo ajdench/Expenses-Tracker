@@ -7,7 +7,7 @@
 ![JavaScript](https://img.shields.io/badge/Vanilla%20JS-ffb000?style=for-the-badge&logo=javascript&logoColor=black)
 ![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)
 
-Fast, phone‑friendly trip expense tracking. Create trips, add expenses, attach receipts, and preview them on your phone. Long‑press an expense to edit; tap the receipt icon to add from your camera roll or take a photo — tap again (green) to preview in a gallery.
+Fast, phone‑friendly trip expense tracking. Create trips, add expenses, attach receipts, and preview them on your phone. Long‑press an expense to edit; tap the receipt icon to add from your camera roll or take a photo — tap again (green) to preview in a gallery. GitHub Pages: https://ajdench.github.io/Expenses-Tracker/
 
 ## For Users
 
@@ -151,7 +151,7 @@ Enable in Settings
 Minimal backend for development
 ```bash
 cd server
-npm i express multer nanoid
+npm i express multer nanoid cors
 node server.js            # runs on http://localhost:4000
 ```
 

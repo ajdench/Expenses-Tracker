@@ -164,10 +164,15 @@
 }
 /* Keep trip card grey border even when selected (blue) and hovered */
 .trip-card.btn-custom-blue:hover,
-.trip-card.btn-custom-blue:focus {
-  border-color: var(--light-grey) !important;
-}
-.trip-card.btn-custom-blue { border-color: var(--light-grey) !important; }
+.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
+.trip-card.btn-custom-blue { background-color: #ffffff !important; border-color: #89a5c9 !important; color: inherit !important; }
+/* Selected trip cards keep dull blue background and grey border */
+.trip-card.btn-custom-blue { background-color: #ffffff !important; border-color: #89a5c9 !important; color: inherit !important; }
+.trip-card.btn-custom-blue:hover,
+.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
+/* Do not darken selected trip cards on hover; keep dull blue */
+.trip-card.btn-custom-blue:hover,
+.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
 /* Enforce exact height on trip cards (border-to-border) */
 .trip-card.card-uniform-height { height: var(--uniform-card-height) !important; box-sizing: border-box; }
 
@@ -266,10 +271,13 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 /* Restore gap beneath header cards and above content */
 #trip-list-container,
 #expense-list-container,
-#settings-container { margin-top: 1rem; }
+#settings-container,
+#archived-list-container { margin-top: 1rem; }
 
 /* Remove all card shadows to improve visual padding consistency */
 .card { box-shadow: none !important; }
+.card, .trip-card, .expense-card, .add-trip-card { border-radius: 0.375rem !important; }
+.trip-card { overflow: hidden; }
 .add-trip-card:hover { box-shadow: none !important; }
 
 /* Expense card icon size */
@@ -288,14 +296,48 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 }
 
 /* Receipts modal */
-.modal-dialog { margin-left: var(--global-horizontal-padding); margin-right: var(--global-horizontal-padding); }
+.modal-dialog {
+  margin: 1rem auto;
+  max-width: min(700px, calc(100% - 2 * var(--global-horizontal-padding)));
+}
 .receipt-viewer { display: flex; justify-content: center; align-items: center; }
+.receipt-viewer { background: #ffffff; }
 .receipt-viewer img { max-width: 100%; max-height: 60vh; border-radius: 0.25rem; }
 .receipt-thumbs { display: flex; gap: 0.5rem; overflow-x: auto; padding-top: 0.5rem; }
-.receipt-thumb { border: 2px solid var(--light-grey); border-radius: 0.25rem; padding: 2px; cursor: pointer; flex: 0 0 auto; }
+.receipt-thumb { position: relative; border: 2px solid var(--light-grey); border-radius: 0.25rem; padding: 2px; cursor: pointer; flex: 0 0 auto; background: #ffffff; }
 .receipt-thumb img { height: 64px; width: auto; display: block; }
 .receipt-thumb--active { border-color: var(--theme-color-blue); }
 .receipt-thumb--pdf { display: flex; align-items: center; justify-content: center; min-width: 48px; }
+
+.receipt-thumb-delete {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #dc3545; /* red */
+  color: #fff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+/* Archive drop zone */
+.drop-zone {
+  border: 2px dashed var(--light-grey);
+  border-radius: 0.25rem;
+  height: var(--uniform-card-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--light-grey);
+}
+.drop-zone--archive { border-color: var(--light-grey); color: var(--light-grey); }
+.drop-zone--unarchive { border-color: var(--theme-color-green-dusty); color: var(--theme-color-green-dusty); }
+.drop-zone--delete { border-color: #dc3545; color: #dc3545; }
 
 /* Edge editor overlay */
 .edge-editor-wrap {
@@ -306,6 +348,25 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 .edge-editor-stage { position: relative; z-index: 0; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .edge-editor-canvas { max-width: 100%; max-height: 100%; background: #111; }
 .edge-editor-overlay { position: absolute; top: 0; left: 0; touch-action: none; z-index: 1; }
+
+/* Embedded editor inside modal */
+.edge-embed { border: 2px solid var(--light-grey); border-radius: 0.25rem; background: #000; padding: 0.5rem; }
+.edge-embed-toolbar { display:flex; gap:0.5rem; justify-content:flex-end; margin-bottom:0.5rem; }
+.edge-embed-stage { position: relative; width: 100%; max-height: 60vh; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#111; }
+.edge-embed-canvas { max-width: 100%; max-height: 100%; }
+.edge-embed-overlay { position:absolute; top:0; left:0; touch-action:none; }
+
+/* Modal working overlay */
+.modal-working {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.modal-working .spinner-border { width: 2rem; height: 2rem; }
 /* Center currency and amount values */
 #exp-amount, #exp-amount-edit { text-align: center; }
 #exp-currency, #exp-currency-edit { text-align: center; text-align-last: center; }
