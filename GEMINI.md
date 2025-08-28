@@ -35,6 +35,7 @@ Open your web browser and navigate to the local address provided by the server (
 
 ## Development Conventions
 
+*   **Configuration:** Feature flags and runtime settings are managed in `config.js`.
 *   **Database:** The application uses IndexedDB for all local data storage, with the schema managed in `db.js`. The database includes object stores for `trips`, `expenses`, `settings` (for category colors, icons, Shortcuts configuration, and image editor settings), and `receipts`.
 *   **UI:** The user interface is dynamically rendered using vanilla JavaScript in `ui.js`. PDF receipts are rendered using `PDF.js`.
 *   **Image Editing:** The application includes an image editor (`image-editor.js`) for adjusting receipt images, with features like edge detection and perspective warping, powered by OpenCV.js and Cropper.js.
@@ -42,6 +43,7 @@ Open your web browser and navigate to the local address provided by the server (
 *   **Offline First:** The service worker in `service-worker.js` is configured to cache all static assets, including the image editor libraries, ensuring the application is available offline.
 *   **iOS Shortcuts Integration:** The app can launch the iOS Shortcuts app to scan documents and attach them as receipts. This feature is configurable in the settings page.
 *   **Modularity:** The code is organized into separate files with distinct responsibilities:
+    *   `config.js`: Feature flags and runtime configuration.
     *   `app.js`: Main application logic and initialization.
     *   `ui.js`: DOM manipulation and UI rendering.
     *   `db.js`: IndexedDB interactions.
@@ -57,6 +59,7 @@ Open your web browser and navigate to the local address provided by the server (
 *   [ ] Refine the drag-and-drop animation to be smoother.
 *   [ ] Test the iOS "Scan Documents" feature using Shortcuts, as outlined in `resources/scan-to-pwa-shortcuts.md`.
 *   [ ] Test the image editor feature, including cropping, edge detection and warping.
+*   [ ] Test trip swipe gestures for changing trip status.
 *   [x] Fix the home button icon color in the trip detail view.
 *   [x] Implement Expense Editing.
 *   [x] Remove unnecessary padding from text within cards.
@@ -65,3 +68,7 @@ Open your web browser and navigate to the local address provided by the server (
 *   [x] Resolve `favicon.png` 404 on GitHub Pages.
 *   [x] Resolve `ReferenceError: Can't find variable: window` in service worker.
 *   [x] Fix Bootstrap modal not hiding on GitHub Pages (re-implemented with a new modal).
+
+## AGENTS.md Suggestions
+
+*   Add `config.js` to the "Project Structure & Module Organization" section in `AGENTS.md`.
