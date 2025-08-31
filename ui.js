@@ -6,7 +6,7 @@ const SWIPE_DISTANCE = 45.2; // 12px (edge) + 19.2px (icon) + 12px (gap) optimiz
 // Global color constants (with fallbacks)
 const COLORS = {
   GREEN: '#7aa992',
-  PURPLE: '#a78bfa', 
+  PURPLE: '#b89bc7', 
   BLUE_DUSTY: '#89a5c9',
   GREY: '#b8c1c9',
   RED: '#c87a7a'
@@ -18,7 +18,8 @@ const UI_CONSTANTS = {
   DEBUG_Z_INDEX: 9999,
   ICON_Z_INDEX: 0,
   CONTENT_Z_INDEX: 2,
-  BORDER_RADIUS: '6px'
+  BORDER_RADIUS: '6px',
+  SHOW_DEBUG_BUTTON: false // Set to true to show debug controls
 };
 
 async function renderShell() {
@@ -36,7 +37,7 @@ async function renderShell() {
           <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi ${icons.cog} home-icon"></i></button>
         </div>
       </div>
-      <button id="debug-control" onclick="
+      ${UI_CONSTANTS.SHOW_DEBUG_BUTTON ? `<button id="debug-control" onclick="
         if (!window.debugTripCards) window.debugTripCards = {isMonitoring: false, intervals: new Set()};
         window.debugTripCards.isMonitoring = !window.debugTripCards.isMonitoring;
         if (window.debugTripCards.isMonitoring) {
@@ -51,7 +52,7 @@ async function renderShell() {
           window.debugTripCards.intervals.forEach(id => clearInterval(id));
           window.debugTripCards.intervals.clear();
         }
-      " style="position:fixed;top:10px;right:10px;z-index:${UI_CONSTANTS.DEBUG_Z_INDEX};padding:10px;background:var(--debug-bg-color);color:white;border:none;border-radius:5px;cursor:pointer;">Start Debug</button>
+      " style="position:fixed;top:10px;right:10px;z-index:${UI_CONSTANTS.DEBUG_Z_INDEX};padding:10px;background:var(--debug-bg-color);color:white;border:none;border-radius:5px;cursor:pointer;">Start Debug</button>` : ''}
 
       <main id="trip-list-container">
         <section class="mb-4">
@@ -71,8 +72,8 @@ async function renderShell() {
           <div id="reimbursed-trips-container"></div>
         </section>
         <section class="mb-4">
-          <h6 class="mb-2 text-placeholder" id="archive-trips-open" style="cursor:pointer;">Archived</h6>
-          <div id="trip-archive-drop" class="drop-zone drop-zone--archive">Archive <em>Trip</em></div>
+          <h6 class="mb-2 text-placeholder"><span id="archive-trips-open">Archived</span></h6>
+          <div id="trip-archive-drop" class="drop-zone drop-zone--archive">Archive&thinsp;<em>Trip</em></div>
         </section>
       </main>
     </div>
@@ -726,12 +727,12 @@ function buildTripCard(trip, isSelected) {
           card.style.background = gradientBg;
           // Set border color based on swipe direction
           const borderColor = dx > 0 ? leftColor : rightColor;
-          card.style.borderColor = borderColor;
-          card.style.borderWidth = '3px'; // Make border more visible
+          card.style.setProperty('border-color', borderColor, 'important');
+          console.log('SWIPE BORDER:', dx, 'borderColor=', borderColor, 'element=', card);
           iconsLayer.style.opacity = '1';
         } else {
           card.style.background = originalBg;
-          card.style.borderColor = '';
+          card.style.removeProperty('border-color');
         card.style.borderWidth = '';
           iconsLayer.style.opacity = '0';
         }
@@ -787,12 +788,12 @@ function buildTripCard(trip, isSelected) {
           card.style.background = gradientBg;
           // Set border color based on swipe direction
           const borderColor = dx > 0 ? leftColor : rightColor;
-          card.style.borderColor = borderColor;
-          card.style.borderWidth = '3px'; // Make border more visible
+          card.style.setProperty('border-color', borderColor, 'important');
+          console.log('SWIPE BORDER:', dx, 'borderColor=', borderColor, 'element=', card);
           iconsLayer.style.opacity = '1';
         } else {
           card.style.background = originalBg;
-          card.style.borderColor = '';
+          card.style.removeProperty('border-color');
         card.style.borderWidth = '';
           iconsLayer.style.opacity = '0';
         }
@@ -1654,11 +1655,11 @@ async function addArchivedTripSwipe(card, trip, onDeselect) {
         card.style.background = gradientBg;
         // Set border color based on swipe direction (purple=left, red=right)
         const borderColor = dx > 0 ? COLORS.PURPLE : COLORS.RED;
-        card.style.borderColor = borderColor;
+        card.style.setProperty('border-color', borderColor, 'important');
         iconsLayer.style.opacity = '1';
       } else {
         card.style.background = originalBg;
-        card.style.borderColor = '';
+        card.style.removeProperty('border-color');
         card.style.borderWidth = '';
         iconsLayer.style.opacity = '0';
       }
@@ -1735,11 +1736,11 @@ async function addArchivedTripSwipe(card, trip, onDeselect) {
         card.style.background = gradientBg;
         // Set border color based on swipe direction (purple=left, red=right)
         const borderColor = dx > 0 ? COLORS.PURPLE : COLORS.RED;
-        card.style.borderColor = borderColor;
+        card.style.setProperty('border-color', borderColor, 'important');
         iconsLayer.style.opacity = '1';
       } else {
         card.style.background = originalBg;
-        card.style.borderColor = '';
+        card.style.removeProperty('border-color');
         card.style.borderWidth = '';
         iconsLayer.style.opacity = '0';
       }
@@ -2167,11 +2168,11 @@ function buildExpenseCard(expense, isSelected, context = 'normal') {
         // right→edit (green), left→archive (grey)  
         borderColor = dx > 0 ? COLORS.GREEN : COLORS.GREY;
       }
-      card.style.borderColor = borderColor;
+      card.style.setProperty('border-color', borderColor, 'important');
       iconsLayer.style.opacity = '1';
     } else {
       card.style.background = originalBg;
-      card.style.borderColor = '';
+      card.style.removeProperty('border-color');
       iconsLayer.style.opacity = '0';
     }
     e.preventDefault();
@@ -3336,8 +3337,8 @@ async function renderExpenseList(tripId, selectedExpenseId = null) {
   const archiveSection = document.createElement('section');
   archiveSection.className = 'mt-3';
   archiveSection.innerHTML = `
-    <h6 class="mb-2 text-placeholder" id="archive-open" style="cursor:pointer;">Archived</h6>
-    <div id="archive-drop" class="drop-zone drop-zone--archive">Archive <em>Expense</em></div>
+    <h6 class="mb-2 text-placeholder"><span id="archive-open">Archived</span></h6>
+    <div id="archive-drop" class="drop-zone drop-zone--archive">Archive&thinsp;&thinsp;<em>Expense</em></div>
   `;
   container.appendChild(archiveSection);
   archiveSection.querySelector('#archive-open').addEventListener('click', ()=> renderArchivedExpenses(tripId));

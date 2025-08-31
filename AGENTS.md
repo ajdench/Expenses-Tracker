@@ -1,134 +1,156 @@
-# Repository Guidelines
+# Repository Guidelines (Updated)
 
 ## Project Structure & Module Organization
-- Root static PWA. Key files: `index.html`, `styles.css`, `app.js` (bootstraps, debug + scan callback), `ui.js` (DOM rendering, drag-and-drop, receipts UI), `db.js` (IndexedDB via `idb`), `register-sw.js` and `service-worker.js` (PWA), `manifest.json`, `favicon.png`.
-- UI sections (rendered by `renderShell` in `ui.js`): `#active-trips-container`, `#submitted-trips-container`, `#reimbursed-trips-container` inside `#trip-list-container`.
-- Settings page (rendered by `renderSettingsPage`): left column half‑width “Category Colours”; right column two stacked cards “Cache and Offline” and “Delete Content”; rows below for “Receipt Icon” + “Header Icons”, “iOS Shortcuts”, “Receipt Viewer”, “Receipt Sources”, “Trip Swipes”, and “Image Adjust”.
-- iOS Shortcuts: Settings adds an “iOS Shortcuts” card (toggle + API base URL) enabling native Scan Documents via Shortcuts. Also supports a Files‑only flow with filename/subfolder templates and iOS Safari gating.
- - Image editing: CropperJS is used for reliable cropping in modal/page; OpenCV.js + Interact.js are lazy‑loaded by the app for auto‑detect/drag when enabled.
- - Feature flags: `config.js` centralizes toggles (e.g., default receipt viewer mode); user selection persists in IndexedDB.
-- Trip cards: single‑click selects; double‑click opens details (no button). On Active, swipe right→Submitted and left→Reimbursed.
-- Tests: `tests/` with Playwright specs; config in `playwright.config.ts`. Test reports in `playwright-report/` and `test-results/`.
+- Root static PWA. Key files: `index.html`, `styles.css`, `app.js` (boot/debug + scan callback), `ui.js` (DOM + gestures + drag-and-drop + receipts), `db.js` (IndexedDB via `idb`), `register-sw.js` and `service-worker.js` (PWA), `manifest.json`, `favicon.png`.
+- Trips shell (rendered by `renderShell` in `ui.js`): sections `#active-trips-container`, `#submitted-trips-container`, `#reimbursed-trips-container`, plus a persistent Archived section with a dashed box labeled `Archive  <em>Trip</em>` that opens the Archived screen.
+- Settings (rendered by `renderSettingsPage`): left “Category Colours”; right stacked “Cache and Offline”, “Delete Content”, “Reset App Settings”; rows for “Receipt Icon”, “Header Icons”, “iOS Shortcuts”, “Receipt Viewer”, “Receipt Sources”, “Trip Swipes”, “Image Adjust”.
+- iOS Shortcuts: Settings adds an “iOS Shortcuts” card (toggle + API base URL) enabling native Scan Documents via Shortcuts; also a Files‑only flow (filename/subfolder templates; iOS Safari gating).
+- Image editing: CropperJS provides reliable in‑modal/page cropping; OpenCV.js + Interact.js are lazy‑loaded for auto‑detect/drag when enabled.
+- Feature flags: `config.js` centralizes toggles (e.g., default receipt viewer mode). User selections persist in IndexedDB.
+- Tests: `tests/` holds Playwright specs; config in `playwright.config.ts`; reports in `playwright-report/` and `test-results/`.
 
 ## Build, Test, and Development Commands
-- `npm start`: Serve the app locally via `npx serve` (defaults to `http://localhost:3000`).
-- `npm run test:e2e`: Run Playwright end-to-end tests (uses `baseURL` and `?nosw`).
-- `npm run test:e2e:headed`: E2E tests with a visible browser.
-- `npm run test:e2e:ui`: Playwright UI mode for focused runs.
-- Tip: To test against a custom server/version: `BASE_URL=http://localhost:3000 APP_VERSION=20250825-06 npm run test:e2e`.
+- `npm start`: Serve locally via `npx serve` (defaults to `http://localhost:3000`).
+- `npm run test:e2e`: Run Playwright end‑to‑end tests (uses `baseURL` and `?nosw`).
+- `npm run test:e2e:headed`: E2E with visible browser; `npm run test:e2e:ui`: Playwright UI mode.
+- Tip: test against a custom server/version: `BASE_URL=http://localhost:3000 APP_VERSION=<ver> npm run test:e2e`.
 
 ### Mobile UX Conventions
-- Edit expense: double‑click on desktop; long‑press (~500ms) on mobile (no extra buttons).
-- Receipts: tap grey icon to capture (camera roll / camera); tap green icon to preview. Badge shows count of receipts. “Retake / Add” appends; “Make Current” marks the active preview as current (nothing is deleted). PDF thumbnails/view use PDF.js when available.
-- Trip status: on Active, swipe right to mark Submitted (green cue), swipe left to mark Reimbursed (purple cue).
+- Edit expense: double‑click (desktop) or long‑press (~500ms, mobile).
+- Receipts: tap grey icon to capture; tap green to preview. Count badge shows receipts. “Retake / Add” appends; “Make Current” marks current; PDFs preview via PDF.js.
+- Trip status & gestures:
+  - Selection: single‑click selects (dull blue border). Only selected cards permit swipe and drag.
+  - Active: right→Submitted (green, check), left→Inline rename (blue, pencil).
+  - Submitted: right→Reimbursed (purple, coin), left→Active (blue, receipt icon cue).
+  - Reimbursed: right→Archived (grey, archive), left→Submitted (green, check).
+  - Archived screen: select then right→Reimbursed (purple).
+  - Swipe travel/threshold: ~11% of card width; overlay opacity scales with distance.
+  - Drag sort: allowed only for selected trips; cross‑column sorting persists status + position.
 
 ### UI/UX Conventions
-- Cards: all header, trip, and collapsed expense cards are 74px tall with 2px grey borders and 16px padding. A consistent 1rem gap exists below headers before content.
-- Trip selection: selected trip cards keep the grey border; tap selected on mobile to open details (double‑click on desktop still works).
-- Forms: currency, amount, date, and time fields are centered in both shadow (read‑only) and edit modes.
-- Archived: expenses support archive/unarchive with an Archived view per trip.
-- iOS safe areas: the app uses `viewport-fit=cover`, a neutral `theme-color`, and `env(safe-area-inset-*)` paddings to avoid bright bars.
+- Card heights: headers, trip, and collapsed expense cards are 78px tall; 2px grey borders; 16px padding; consistent 1rem gap below headers.
+- Trip cards: left title (1rem); right stacked currency totals. Totals stack in order `£`, `$`, `€`, `zł`, then others A–Z; unselected totals are light grey, selected are black. With 3 currencies, text compacts (0.9rem, tighter gap) to avoid pushing the title off‑center. Row uses CSS Grid to keep both title and totals vertically centered.
+- Inline rename (Active left‑swipe): inline input matches shadow width (reserves ~110px for a button + 0.5rem gap), uses 40px control height.
+- Forms: currency/amount/date/time are centered in shadow and edit modes.
+- Expenses: support archive/unarchive with an Archived per‑trip view.
+- iOS safe areas: `viewport-fit=cover`, neutral `theme-color`, `env(safe-area-inset-*)` paddings to avoid bright bars.
 
-## Coding Style & Naming Conventions
-- JavaScript: 2-space indent, semicolons, single quotes; `const`/`let` appropriately.
-- Naming: functions/vars `camelCase`; CSS classes/IDs `kebab-case` (e.g., `#add-trip-card`); constants `UPPER_SNAKE` when needed.
-- Keep UI logic in `ui.js`, persistence in `db.js`, and app init/debug in `app.js`. Avoid introducing build steps—files are loaded directly in the browser.
+## Coding Style & Naming
+- JavaScript: 2‑space indent, semicolons, single quotes; `const`/`let` appropriately.
+- Naming: functions/vars `camelCase`; CSS classes/IDs `kebab-case`; constants `UPPER_SNAKE` when needed.
+- Keep UI in `ui.js`, persistence in `db.js`, app boot/debug in `app.js`. No build step — files load directly in the browser.
 
 ## Testing Guidelines
-- Framework: Playwright (`@playwright/test`). Specs named `*.spec.ts` under `tests/` (see `tests/e2e.spec.ts`).
-- Keep selectors stable. Prefer IDs and accessible labels used in the app (e.g., `#active-trips-container`, `#save-expense`, `aria-label="Trip name"`, `aria-label="Description"`). Avoid relying on non‑existent buttons for navigation (trip details open on double‑click or by tapping the selected card).
-- Before pushing, run `npm start` and `npm run test:e2e`. For debugging, use `--headed` or `--ui`.
+- Framework: Playwright (`@playwright/test`). Specs `*.spec.ts` under `tests/` (see `tests/e2e.spec.ts`).
+- Keep selectors stable: prefer IDs and accessible labels (e.g., `#active-trips-container`, `#save-expense`, `aria-label="Trip name"`, `aria-label="Description"`).
+- Before pushing, run `npm start` and `npm run test:e2e` (`--headed` or `--ui` for debugging).
 
-## Commit & Pull Request Guidelines
-- Commits: Conventional Commits style observed (e.g., `feat: ...`, `fix: ...`, `ci: ...`). Keep messages imperative and concise.
-- PRs: Include a clear description, linked issue(s), screenshots or short clips for UI changes, and notes on testing. Update affected tests.
+## Commit & PR Guidelines
+- Conventional Commits (e.g., `feat: ...`, `fix: ...`, `ci: ...`). Keep messages imperative and concise.
+- PRs: clear description, linked issues, screenshots/clips for UI changes, testing notes. Update tests when needed.
 
-## Security & Configuration Tips
-- Service Worker: Disabled globally in `register-sw.js` for development/Pages testing (unregisters any SW, clears caches). Re‑enable later before production.
-- Caching: Use `?v=dev&nosw` in the URL to force fresh loads while iterating.
-- Data: Uses IndexedDB (`ExpenseTracker`).
-  - Settings: `settings` store holds `{ key, value }` records for `categoryColors`, `icons`, `scan`, `receiptViewer`, `capture`, `imageAdjust`, and `tripSwipes`.
-  - Service Worker: caches OpenCV.js and Interact.js with stale‑while‑revalidate when enabled.
-- Shortcuts Dev Server: enable CORS for `http://localhost:3000` in `server/server.js` to allow the browser to fetch scanned files.
+## Security & Configuration
+- Service Worker: disabled globally in `register-sw.js` for development/Pages (unregisters SW, clears caches). Re‑enable for production.
+- Cache busting while iterating: append `?v=<stamp>&nosw` to the app URL AND update asset query strings in `index.html` (e.g., `ui.js?v=<stamp>`). Hard‑reload with cache disabled if needed.
+- Data: IndexedDB `ExpenseTracker`.
+  - Settings store: `categoryColors`, `icons`, `scan`, `receiptViewer`, `capture`, `imageAdjust`, `tripSwipes`.
+  - SW (when enabled): caches OpenCV.js and Interact.js with stale‑while‑revalidate.
+- Shortcuts Dev Server: enable CORS for `http://localhost:3000` in `server/server.js`.
 
 ## GitHub Pages Deploy
-- Changes made: SW disabled globally; favicon path made relative; `.gitignore` updated (ignores `node_modules/`); deploy workflow uses `peaceiris/actions-gh-pages@v4` to publish repo root to `gh-pages`.
-- One-time settings: GitHub → Settings → Pages → Source: Deploy from a branch; Branch: `gh-pages` / root (`/`).
+- Workflow publishes repo root to `gh-pages` (`peaceiris/actions-gh-pages@v4`). SW disabled to avoid caching surprises.
+- One‑time repo settings: GitHub → Settings → Pages → Source: Deploy from a branch; Branch: `gh-pages` / root (`/`).
 - Local check: `npm start` then open `http://localhost:3000/index.html?v=dev&nosw`.
-- Commit + push to deploy:
+- Deploy:
   - `git add -A`
-  - `git commit -m "chore: prepare GitHub Pages deploy (disable SW, fix paths)"`
+  - `git commit -m "chore: deploy to GitHub Pages"`
   - `git push origin master`
-- Access URL: `https://<username>.github.io/<repo>/` (append `?v=dev&nosw` while iterating).
+- Live: `https://<username>.github.io/<repo>/` (append `?v=dev&nosw` while iterating).
 
-### Re-enabling the Service Worker (production)
-- Toggle: In `register-sw.js`, set `DEFAULT_ENABLE_SW = true` (or define `window.ENABLE_SW = true` before loading `register-sw.js`).
-- Remove `?nosw` from URLs and bump the `v` query on assets/`index.html` to bust caches.
-- Validate: Open DevTools → Application → Service Workers to confirm registration; test offline.
+### Re‑enabling Service Worker (production)
+- In `register-sw.js`, set `DEFAULT_ENABLE_SW = true` (or set `window.ENABLE_SW = true` before loading the script).
+- Remove `?nosw` and bump the `v` query on assets/`index.html`.
+- Validate in DevTools → Application → Service Workers; test offline.
 
 ## iOS “Scan Documents” via Shortcuts
-- Approach: Launch Apple Shortcuts with `shortcuts://x-callback-url/run-shortcut` from a user gesture; pass JSON (e.g., `{ session, auth, expenseId }`) in `text=`; set `x-success=/scan/done` to get a short token back.
-- Shortcut (Web): “Scan Documents” → (optional) “Make PDF” → “Get Contents of URL (POST multipart/form-data)” to your API → returns `{ id }` → redirect back with `?result=<id>`.
-- Backend (dev): Minimal Express + multer + cors. `POST /upload` (fields `file`, `session`, `auth`) → `{ id }`. `GET /files/:id` serves the file.
-- App callback: `app.js` handles `?scan=done|files-done|cancel|error`. On `done`, fetch `GET {API_BASE}/files/:id`, save as receipt, mark current, then strip the query.
-- Files mode: Separate Shortcut “Scan to Files” saves a PDF locally. On `?scan=files-done`, the app prompts to open Files picker and select the suggested filename/subfolder.
+- Launch Shortcuts via `shortcuts://x-callback-url/run-shortcut` from a user gesture; pass JSON (e.g., `{ session, auth, expenseId }`) in `text=`; set `x-success=/scan/done`.
+- Shortcut (Web): Scan Documents → (optional) Make PDF → POST multipart/form-data to `/upload` → response `{ id }` → return with `?result=<id>`.
+- Backend (dev): Express + multer + cors. `POST /upload` (`file`, `session`, `auth`) → `{ id }`; `GET /files/:id` returns the file.
+- App callback: `app.js` handles `?scan=done|files-done|cancel|error`. On `done`, fetch `GET {API_BASE}/files/:id`, save as receipt, mark current, strip the query.
+- Files mode: Separate “Scan to Files” Shortcut saves a PDF locally; on `?scan=files-done`, the app prompts to open Files picker and choose the suggested name/subfolder.
 
 ## Decisions & Conventions
 - Data model:
-  - Receipts: `receipts` store (DB v4) with `by_expenseId` index and `current` flag per expense.
+  - Receipts: `receipts` store (DB v4) with `by_expenseId` index and `current` flag.
   - Trips: Persist `position` for drag order; lists sort by `position` then `createdAt`.
-- UI contracts:
-  - Cards: headers, trip, collapsed expense cards are 74px tall, 2px grey borders, 16px padding, 1rem header→content gap.
-  - Gestures: long‑press to edit expenses (mobile); double‑click (desktop). Tap selected trip (mobile) opens details; double‑click on desktop. On Active, swipe to change status (toggleable).
-  - Forms: currency, amount, date, time centered (shadow + edit).
-  - Receipts: grey=add, green=preview, count badge; “Retake/Add” appends; “Make Current” marks active; never delete.
-- PDF handling:
-  - PDF.js via CDN; thumbnails render first page; main view uses canvas (fallback iframe).
-  - Revoke object URLs on modal close to limit memory usage.
-- iOS behavior:
-  - `viewport-fit=cover`, neutral `theme-color`, safe‑area paddings to avoid bright bars.
-- Service Worker:
-  - Disabled by default; toggle using `DEFAULT_ENABLE_SW` or `window.ENABLE_SW`; `?nosw` honored. When enabling, bump `v` and validate in DevTools.
-- Deployment:
-  - GitHub Pages workflow publishes repo root to `gh-pages`; asset paths are relative.
+- Trips UI contracts:
+  - 78px card height; 2px borders; 16px padding; 1rem header→content gap.
+  - Selection: single‑click selects; only selected allows swipe and drag; tap selected on mobile opens details; double‑click opens details (desktop).
+  - Gestures & thresholds: per‑column swipes as listed above; ~11% travel; overlay shows status‑colored gradient with icons; reveal ignores pointer events; click resets reveal.
+  - Inline rename (Active left‑swipe): pencil icon (blue) cue; input width matches shadow editor (reserves ~110px + 0.5rem gap).
+  - Archived section: persistent at bottom of Trips; clicking header or dashed box opens Archived screen; drop‑zone accepts selected trip cards (drag ghost scales to ~95%).
+- Receipts:
+  - Grey=add, green=preview, count badge; “Retake/Add” appends; “Make Current” marks current; never delete when marking.
+  - PDF handling: PDF.js via CDN; thumbnails render first page; main view prefers canvas (iframe fallback). Revoke object URLs on close.
+- iOS:
+  - `viewport-fit=cover`, neutral `theme-color`, safe‑area paddings.
 - Settings UI:
-  - Reset button is full width inside card padding.
-  - “Clear cache” unregisters Service Workers and clears caches.
-  - “Delete content” clears `trips`, `expenses`, and `receipts` stores (confirm required).
-  - Icon choices persist and update header/receipt icons immediately.
-  - Trip Swipes toggle persists under `settings.tripSwipes.enable`.
+  - Full‑width Reset in Category Colours; Clear cache unregisters SW + clears caches; Delete content clears trips/expenses/receipts (confirm); Reset App Settings clears `settings` store and reloads.
 
 ## QA Checklist
 - Trips
-  - Drag/reorder persists across reloads (position stored).
-  - Selected trip keeps grey border; tap again opens details on mobile; double‑click on desktop.
-  - Swipe gestures on Active update status (when enabled).
+  - Drag/reorder persists across reloads (position stored; only selected trips are draggable). Cross‑column moves persist status.
+  - Selection visuals: title darker grey when selected; currency totals black on selected, light grey unselected.
+  - Swipes per column with 11% threshold and correct colors/icons; Active left‑swipe opens inline rename.
+  - Archived section present; Archive drop accepts selected trips; clicking opens Archived screen.
 - Expenses
-  - Long‑press to edit on mobile; double‑click on desktop.
-  - Collapsed card height is 74px; vendor/date/time positions consistent.
-  - Shadow “Add expense” placeholders are centered (currency/amount/date/time).
+  - Long‑press to edit (mobile); double‑click (desktop).
+  - Collapsed height 78px; vendor/date/time positions consistent.
+  - Shadow “Add expense” placeholders centered (currency/amount/date/time).
 - Receipts
   - Add via camera/photos; green icon + count badge updates.
-  - Preview (modal or page) shows images and PDFs; thumbnails render; “Make Current” works.
-  - Object URLs revoked on modal close.
+  - Preview shows images/PDFs; thumbnails render; “Make Current” works; object URLs revoked on close.
 - Layout/headers
-  - 1rem gap beneath page headers; modals respect 1rem container padding.
-  - iOS: no bright bars at top/bottom; safe‑area respected.
+  - 1rem gap beneath page headers; modals respect 1rem container padding; title and currency stack vertically centered on trip cards (n=1..3 lines).
 - Settings
-  - Category Reset restores defaults (full width).
-  - Clear cache unregisters Service Workers and clears caches.
-  - Delete content removes Trips, Expenses, Receipts and returns to Trips view.
-  - Icon choices persist and update header/receipt icons immediately.
-  - Shortcuts toggle persists; API base URL is respected.
-  - “Scan with iOS Shortcuts” appears only on iOS Safari when enabled and API base is set.
-  - After a scan, receipt is attached to the intended expense and marked current.
-- Image Adjust
-  - Crop opens on image receipts, not PDFs; Apply saves as new receipt and marks current.
+  - Category reset; Clear cache; Delete content; Reset app settings; Icon choices persist; Shortcuts toggle + API; “Scan with iOS Shortcuts” gated to iOS Safari; post‑scan attaches and marks current; Image Adjust crop saves new receipt and marks current.
 
-## Development: Shortcuts Integration
-1. Add Settings card “iOS Shortcuts” with toggle and `apiBaseUrl` input (`ui.js`, persisted via `db.js` `getScanSettings`/`saveScanSettings`).
-2. Add an action sheet for receipts with two options: Camera/Photos (existing file input) and “Scan with iOS Shortcuts.”
-3. Implement `launchShortcutsScan(expenseId)` to compose the x‑callback URL with JSON `{ session, auth, expenseId }`; store pending session in `localStorage`.
-4. In `app.js`, add `handleScanCallbackIfPresent()` on boot to process `?scan=done|cancel|error`; on `done`, fetch the file from `{API_BASE}/files/:id`, save to receipts, mark current, then strip the query.
-5. Provide `server/server.js` (Express + multer + cors) for local uploads during development.
+## Claude Code Implementation Notes (2025-08-29)
 
+### Desktop/Mobile UX Patterns
+- **Desktop Swipes**: Implement via mousedown/mousemove/mouseup events mirroring touch patterns
+- **Selection-Based Actions**: Only selected cards (blue border) can swipe or drag
+- **Interaction Flow**: Click to select → swipe for status change → long-click for drag reorder
+- **Archive Zones**: Ghost disappears, background changes to light grey on dragover
+
+### Critical Implementation Requirements
+- **Single Selection**: Multi-select disabled, clicking deselects others
+- **Gesture Conflicts**: Swipe disabled during drag operations  
+- **Edit Mode**: Expense cards collapse to 78px on blur/cancel (currently working correctly)
+- **Drag Visual**: Archive drop zones show light grey background, hide ghost
+- **Touch/Mouse Parity**: Same UX patterns for both input methods
+
+### Progress Update (Session End 2025-08-31)
+> **ALL MAJOR UX ISSUES RESOLVED**: Complete success with polished implementation
+> - **Colors Fixed**: Trip/expense backgrounds, selection colors, text colors all correct  
+> - **Sizing Fixed**: Section titles smaller (1rem), HTML consistency (all h6)
+> - **Selection Fixed**: Expense edit persistence, Active section text colors
+> - **Double-click Fixed**: Proper two-stage behavior (unselected→select, selected→open)
+> - **Swipe Borders**: Fixed CSS !important conflicts, all cards show border color changes during swipes
+> - **Visual Polish**: Purple tone adjusted, global cursor standardization, archive spacing improved
+> - **Debug Controls**: Hidden behind global toggle (`UI_CONSTANTS.SHOW_DEBUG_BUTTON`)
+> **STATUS**: All original UX issues fully resolved, app ready for production use
+
+### Technical Implementation Notes
+> **Architecture**: Global constants system (`COLORS`, `UI_CONSTANTS`) for consistent UX
+> **Border Fixes**: Used `setProperty('border-color', color, 'important')` to override CSS !important rules
+> **Cursor Control**: Universal `cursor: default !important` prevents inconsistent browser cursors
+> **Debug System**: Toggleable via `UI_CONSTANTS.SHOW_DEBUG_BUTTON` for development
+> **See**: `CLAUDE.md` for memory system and complete project documentation
+
+## Development: Shortcuts Integration (Summary)
+1. Settings card "iOS Shortcuts" with toggle and `apiBaseUrl` (persisted via `getScanSettings`/`saveScanSettings`).
+2. Receipts action sheet: Camera/Photos, "Scan with iOS Shortcuts", "Scan (Shortcuts → Files)".
+3. `launchShortcutsScan(expenseId)`: compose x‑callback with `{ session, auth, expenseId }`; store pending session in `localStorage`.
+4. `app.js` `handleScanCallbackIfPresent()`: process `?scan=done|files-done|cancel|error`; on `done`, fetch file from `{API_BASE}/files/:id`, save, mark current, strip query.
+5. `server/server.js` (Express + multer + cors) supports local uploads during development.

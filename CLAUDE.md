@@ -84,11 +84,11 @@ echo "Next: implement Z" >> memory/active/context.md
 project_name: Trip Expense Tracker
 type: Progressive Web App (PWA)
 stack: Vanilla JS, Bootstrap 5, IndexedDB, SortableJS
-start_command: npm start (runs on localhost:3000)
+start_command: npm start (runs on localhost:54290)
 
 structure:
   ui.js: Main UI rendering and interaction logic (~3700 lines)
-  styles.css: CSS styling with custom properties
+  styles.css: CSS styling with custom properties and global cursor control
   app.js: Application coordinator and data flow
   db.js: IndexedDB database operations
   index.html: PWA entry point with service worker
@@ -99,8 +99,17 @@ key_features:
   - Receipt management with image editing capabilities
   - Drag/drop reordering with SortableJS
   - Double-click selection pattern for cards
+  - Global color/UI constants system (COLORS, UI_CONSTANTS)
+  - Border color feedback on swipe initiation
   
-current_focus: UX polish and swipe gesture refinements
+recent_improvements:
+  - Fixed border color visibility during swipes (CSS !important conflicts resolved)
+  - Adjusted purple swipe tone to match red archive tone
+  - Global cursor standardization (default pointer across all browsers)
+  - Archive area UX improvements (clickable zones, text spacing)
+  - Debug controls hidden behind global toggle
+  
+status: Polished, all major UX issues resolved
 ```
 
 ## 🎯 Operating Principles

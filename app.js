@@ -71,10 +71,17 @@ async function handleScanCallbackIfPresent() {
   } catch (e) {
     console.error('Failed handling scan callback', e);
   } finally {
-    // Clear pending and strip query
+    // Clear pending and strip only scan-related query params
     try { localStorage.removeItem('scan:pending'); } catch {}
     try { localStorage.removeItem('scan:pending-files'); } catch {}
-    history.replaceState(null, '', location.pathname);
+    
+    // Preserve non-scan query parameters (like cache-busting)
+    const currentParams = new URLSearchParams(location.search);
+    currentParams.delete('scan');
+    currentParams.delete('result');
+    const newSearch = currentParams.toString();
+    const newUrl = location.pathname + (newSearch ? '?' + newSearch : '');
+    history.replaceState(null, '', newUrl);
   }
 }
 

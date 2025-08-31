@@ -1,3 +1,8 @@
+/* Global cursor override - default pointer for all elements */
+* {
+  cursor: default !important;
+}
+
 /* Custom placeholder color to match shadow text */
 #add-expense-card.editing input::placeholder,
 #add-expense-card.editing textarea::placeholder,

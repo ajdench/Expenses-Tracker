@@ -282,3 +282,15 @@ async function deleteAllContent() {
     throw e;
   }
 }
+
+// Reset all settings (categoryColors, icons, scan, receiptViewer, capture, imageAdjust, tripSwipes)
+async function deleteAllSettings() {
+  try {
+    const tx = db.transaction(['settings'], 'readwrite');
+    await tx.objectStore('settings').clear();
+    await tx.done;
+  } catch (e) {
+    console.error('[DB] deleteAllSettings error', e);
+    throw e;
+  }
+}

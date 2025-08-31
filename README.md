@@ -1,4 +1,4 @@
-# Expense Tracker
+# 💰 Trip Expense Tracker
 
 ![Build](https://img.shields.io/badge/Build-Passing-22c55e?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Device-📱%20Mobile%20Optimized-0ea5e9?style=for-the-badge)
@@ -7,11 +7,24 @@
 ![JavaScript](https://img.shields.io/badge/Vanilla%20JS-ffb000?style=for-the-badge&logo=javascript&logoColor=black)
 ![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)
 
-Fast, phone‑friendly trip expense tracking. Create trips, add expenses, attach receipts, and preview them on your phone. Long‑press an expense to edit; tap the receipt icon to add from your camera roll or take a photo — tap again (green) to preview in a gallery. GitHub Pages: https://ajdench.github.io/Expenses-Tracker/
+**Fast, intuitive trip expense tracking with professional UX polish.** Create trips, add expenses, attach receipts, and manage everything seamlessly across desktop and mobile. Features swipe gestures, drag-and-drop reordering, receipt management with image editing, and iOS Shortcuts integration.
+
+**🚀 Live Demo:** https://ajdench.github.io/Expenses-Tracker/
+
+## ✨ Key Features
+
+- **🎯 Intuitive Gestures**: Swipe cards to change trip status with visual feedback
+- **📱 Mobile-First Design**: Optimized for iOS/Android with safe area support  
+- **📸 Smart Receipt Management**: Camera capture, gallery preview, PDF support, edge detection
+- **🔄 Drag & Drop**: Reorder trips and expenses with SortableJS integration
+- **🎨 Visual Polish**: Consistent colors, smooth animations, proper selection states
+- **📲 iOS Shortcuts**: Native document scanning integration
+- **💾 Offline Ready**: IndexedDB storage, optional service worker caching
+- **🔧 Developer Friendly**: No build step, vanilla JavaScript, comprehensive testing
 
 ## For Users
 
-- Trips: Add a trip; tap to select; tap again to open. Drag between Active, Submitted, Reimbursed.
+- Trips: Add a trip; tap to select; tap again to open. Drag between Active, Submitted, Reimbursed (drag only when selected). Use the bottom “Archived” header and “Archive  Trip” dashed box to open Archived or drop a selected card to archive.
 - Expenses: Add from the “Add expense” card. Long‑press an expense to edit on mobile (desktop: double‑click).
 - Receipts: Grey icon = add (camera roll / camera). Green icon = preview; thumbnails + “Retake / Add”; “Make Current” marks the active image. All images are kept.
 - Mobile polish: Compact cards (74px), centered fields (currency/amount/date/time), safe‑area support for iPhone Dynamic Island.
@@ -24,7 +37,7 @@ Fast, phone‑friendly trip expense tracking. Create trips, add expenses, attach
 
 ### Settings
 - Category colours: Tap a category pill to pick a colour. Reset restores defaults (full‑width button).
-- Cache and Offline: “Clear cache” unregisters Service Workers and clears cached assets (dashed gold button).
+- Cache and Offline: “Clear cache” unregisters Service Workers and clears cached assets (dashed gold button). “Reset App Settings” clears settings and reloads (icons/colours/viewer/Shortcuts/capture/image adjust/swipes).
 - Delete Content: “Delete content” removes all Trips, Expenses and Receipts (dashed orange button, confirm required).
 - Icons: Choose Receipt, Home, and Settings icons. Choices apply across headers and expense cards and persist in the browser.
 
@@ -48,14 +61,14 @@ Try it on Pages: `https://<your-username>.github.io/<repo-name>/?v=dev&nosw`
 Serve the static files from the repo root (no build step required):
 
 ```bash
-npm start            # runs npx serve on port 3000
+npm start            # runs npx serve
 # or
-npx serve -l 3000
+npx serve -l 3000    # force specific port
 # or
 python3 -m http.server 3000
 ```
 
-Open: `http://localhost:3000/index.html?v=dev&nosw`
+Open in your browser at the displayed localhost URL.
 
 Notes
 - Service Worker is disabled during development and Pages deploys (see `register-sw.js`).
@@ -64,8 +77,9 @@ Notes
  - Image editor libraries (OpenCV.js, Interact.js) are lazy‑loaded at runtime; enable the Service Worker to cache them for offline use.
 
 Design/UX
-- Cards: headers, trip, and collapsed expense cards are 74px (2px grey borders, 16px padding). There’s a consistent 1rem gap below headers.
-- Trip navigation: selected trip keeps its grey border; on mobile, tap selected to open details (desktop double‑click still works).
+- Cards: headers, trip, and collapsed expense cards are 78px (2px grey borders, 16px padding). There’s a consistent 1rem gap below headers.
+- Trip navigation: single‑tap selects (dull blue border). Only selected cards can swipe or drag. Tap selected to open details (desktop double‑click still works).
+- Trip cards: title at 1rem on left; right shows stacked currency totals for non‑archived expenses, ordered £, $, €, zł, then others A–Z. With 3 currencies, totals compact slightly; the row uses CSS Grid to keep both title and totals vertically centered.
 - Forms: currency, amount, date, and time fields are centered in both shadow and edit modes.
 - iOS: `viewport-fit=cover`, neutral `theme-color`, safe‑area padding to avoid bright bars.
 

@@ -33,6 +33,10 @@ Open your web browser and navigate to the local address provided by the server (
 *   Confirm that an "ExpenseTracker" database has been created in "IndexedDB".
 *   To test offline functionality, disconnect from the internet and reload the page. The application should continue to work as expected.
 
+## AI Agent Collaboration
+
+This project uses a shared configuration file, `AGENTS.md`, to coordinate efforts between different AI coding assistants (including Gemini, Claude, and Codex). This file outlines project-specific conventions and instructions to ensure consistency regardless of the assistant being used.
+
 ## Development Conventions
 
 *   **Configuration:** Feature flags and runtime settings are managed in `config.js`.
@@ -68,7 +72,3 @@ Open your web browser and navigate to the local address provided by the server (
 *   [x] Resolve `favicon.png` 404 on GitHub Pages.
 *   [x] Resolve `ReferenceError: Can't find variable: window` in service worker.
 *   [x] Fix Bootstrap modal not hiding on GitHub Pages (re-implemented with a new modal).
-
-## AGENTS.md Suggestions
-
-*   Add `config.js` to the "Project Structure & Module Organization" section in `AGENTS.md`.
