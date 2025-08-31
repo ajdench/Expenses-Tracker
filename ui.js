@@ -1,5 +1,26 @@
 // UI Rendering Logic
 
+// Global swipe configuration
+const SWIPE_DISTANCE = 45.2; // 12px (edge) + 19.2px (icon) + 12px (gap) optimized for UX
+
+// Global color constants (with fallbacks)
+const COLORS = {
+  GREEN: '#7aa992',
+  PURPLE: '#a78bfa', 
+  BLUE_DUSTY: '#89a5c9',
+  GREY: '#b8c1c9',
+  RED: '#c87a7a'
+};
+
+// Global UI constants  
+const UI_CONSTANTS = {
+  DOUBLE_CLICK_DELAY: 300,
+  DEBUG_Z_INDEX: 9999,
+  ICON_Z_INDEX: 0,
+  CONTENT_Z_INDEX: 2,
+  BORDER_RADIUS: '6px'
+};
+
 async function renderShell() {
   const app = document.getElementById('app');
   if (!app) return;
@@ -8,43 +29,57 @@ async function renderShell() {
   const scan = await loadScanSettings();
   app.innerHTML = `
     <div class="container">
-      <div class="card card-uniform-height text-center btn-custom-blue text-white">
+      <div class="card card-uniform-height text-white btn-custom-blue">
         <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
           <button id="receipt-icon" class="btn text-white btn-no-style header-btn-left" aria-label="Receipts"><i class="bi ${icons.receipt} home-icon"></i></button>
           <h4 class="header-title">Expenses</h4>
           <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi ${icons.cog} home-icon"></i></button>
         </div>
       </div>
+      <button id="debug-control" onclick="
+        if (!window.debugTripCards) window.debugTripCards = {isMonitoring: false, intervals: new Set()};
+        window.debugTripCards.isMonitoring = !window.debugTripCards.isMonitoring;
+        if (window.debugTripCards.isMonitoring) {
+          this.innerHTML = 'Stop Debug';
+          this.style.backgroundColor = '#dc3545';
+          console.clear();
+          console.log('🔴 DEBUG STARTED - Trip card layer tracking');
+        } else {
+          this.innerHTML = 'Start Debug';
+          this.style.backgroundColor = '#007bff';
+          console.log('🔴 DEBUG STOPPED');
+          window.debugTripCards.intervals.forEach(id => clearInterval(id));
+          window.debugTripCards.intervals.clear();
+        }
+      " style="position:fixed;top:10px;right:10px;z-index:${UI_CONSTANTS.DEBUG_Z_INDEX};padding:10px;background:var(--debug-bg-color);color:white;border:none;border-radius:5px;cursor:pointer;">Start Debug</button>
 
       <main id="trip-list-container">
         <section class="mb-4">
-          <h5 class="mb-2 text-placeholder">Active</h5>
-          <div id="active-trips-container"></div>
-        </section>
-        <section class="settings-icons-row">
-          <div class="card app-card">
-            <div class="card-body">
-              <h6 class="mb-2">Trip Swipes</h6>
-              <div class="d-flex align-items-center gap-2">
-                <input type="checkbox" id="trip-swipes-enable" ${(((await getTripSwipeSettings())?.enable) !== false) ? 'checked' : ''}>
-                <label for="trip-swipes-enable" class="mb-0">Enable swipe actions on Active trips</label>
-              </div>
-              <small class="text-muted">Swipe right → Submitted, left → Reimbursed (Active only).</small>
-            </div>
-          </div>
+          <h6 class="mb-2 text-placeholder">New</h6>
+          <div id="new-trips-container"></div>
         </section>
         <section class="mb-4">
-          <h5 class="mb-2 text-placeholder">Submitted</h5>
+          <h6 class="mb-2 text-placeholder">Active</h6>
+          <div id="active-trips-container"></div>
+        </section>
+        <section class="mb-4">
+          <h6 class="mb-2 text-placeholder">Submitted</h6>
           <div id="submitted-trips-container"></div>
         </section>
         <section class="mb-4">
-          <h5 class="mb-2 text-placeholder">Reimbursed</h5>
+          <h6 class="mb-2 text-placeholder">Reimbursed</h6>
           <div id="reimbursed-trips-container"></div>
+        </section>
+        <section class="mb-4">
+          <h6 class="mb-2 text-placeholder" id="archive-trips-open" style="cursor:pointer;">Archived</h6>
+          <div id="trip-archive-drop" class="drop-zone drop-zone--archive">Archive <em>Trip</em></div>
         </section>
       </main>
     </div>
   `;
   document.getElementById('settings-btn').addEventListener('click', renderSettingsPage);
+  document.getElementById('archive-trips-open')?.addEventListener('click', renderArchivedTrips);
+  document.getElementById('trip-archive-drop')?.addEventListener('click', renderArchivedTrips);
 }
 
 async function renderSettingsPage() {
@@ -106,6 +141,17 @@ async function renderSettingsPage() {
               </div>
               <div class="d-flex">
                 <button id="delete-all-content" class="btn btn-dashed-orange w-100">Delete content</button>
+              </div>
+            </div>
+          </div>
+          <div class="card app-card">
+            <div class="card-body d-flex flex-column justify-content-between">
+              <div>
+                <h6 class="mb-2">Reset App Settings</h6>
+                <p class="mb-1 text-placeholder">Restore all settings to defaults (icons, colours, viewer, Shortcuts, capture, image adjust, swipes). Does not delete trips/expenses/receipts.</p>
+              </div>
+              <div class="d-flex">
+                <button id="reset-all-settings" class="btn btn-secondary w-100">Reset settings</button>
               </div>
             </div>
           </div>
@@ -222,6 +268,18 @@ async function renderSettingsPage() {
         <section class="settings-icons-row">
           <div class="card app-card">
             <div class="card-body">
+              <h6 class="mb-2">Trip Swipes</h6>
+              <div class="d-flex align-items-center gap-2">
+                <input type="checkbox" id="trip-swipes-enable" ${(((await getTripSwipeSettings())?.enable) !== false) ? 'checked' : ''}>
+                <label for="trip-swipes-enable" class="mb-0">Enable swipe actions on Active trips</label>
+              </div>
+              <small class="text-muted">Swipe right → Submitted, left → Reimbursed (Active only).</small>
+            </div>
+          </div>
+        </section>
+        <section class="settings-icons-row">
+          <div class="card app-card">
+            <div class="card-body">
               <h6 class="mb-2">Receipt Sources</h6>
               <div class="d-flex flex-column gap-2">
                 <div class="d-flex align-items-center gap-2">
@@ -286,6 +344,7 @@ async function renderSettingsPage() {
     renderSettingsPage();
   });
   document.getElementById('clear-app-cache')?.addEventListener('click', clearAppCache);
+  
   document.getElementById('delete-all-content')?.addEventListener('click', async () => {
     const proceed = confirm('Delete all Trips, Expenses and Receipts? This cannot be undone.');
     if (!proceed) return;
@@ -366,6 +425,21 @@ async function renderSettingsPage() {
     web?.addEventListener('change', async (e)=>{ const c=await getCaptureSettings(); c.scanWeb = !!e.target.checked; await saveCaptureSettings(c); });
     files?.addEventListener('change', async (e)=>{ const c=await getCaptureSettings(); c.scanFiles = !!e.target.checked; await saveCaptureSettings(c); });
   })();
+  // Reset all app settings
+  document.getElementById('reset-all-settings')?.addEventListener('click', async () => {
+    const ok = confirm('Reset all app settings to defaults? This will reload the app. (Trips/expenses/receipts are not affected)');
+    if (!ok) return;
+    try {
+      if (typeof deleteAllSettings === 'function') await deleteAllSettings();
+      // Also clear any localStorage toggles related to scanning sessions
+      try { localStorage.removeItem('scan:pending'); localStorage.removeItem('scan:pending-files'); } catch {}
+      // Reload to apply default feature flags and settings
+      location.href = `${location.pathname}?v=dev&nosw`;
+    } catch (e) {
+      console.error('Failed to reset settings', e);
+      alert('Failed to reset settings');
+    }
+  });
   // Files mode toggle
   document.getElementById('scan-files-enable')?.addEventListener('change', async (e) => {
     const current = await getScanSettings();
@@ -501,63 +575,451 @@ function buildTripCard(trip, isSelected) {
   const card = document.createElement('div');
   card.className = `card mb-3 trip-card card-uniform-height ${isSelected ? 'text-white btn-custom-blue' : ''}`;
   card.dataset.tripId = trip.id;
+  
+  console.log(`🔵 BUILD TRIP CARD: trip=${trip.id}, selected=${isSelected}, className="${card.className}"`);
+  setTimeout(() => {
+    if (card.offsetWidth > 0) {
+      console.log(`🔵 TRIP CARD RENDERED:`, {w: card.offsetWidth, h: card.offsetHeight, bg: getComputedStyle(card).backgroundColor, br: getComputedStyle(card).borderRadius, z: getComputedStyle(card).zIndex});
+    }
+  }, 10);
+  
+  // Desktop mouse swipe support flag (needs to be in card scope)
+  let didSwipeAction = false;
   card.innerHTML = `
-    <div class="card-body d-flex justify-content-between align-items-center">
-      <h5 class="card-title mb-0">${escapeHTML(trip.name)}</h5>
+    <div class="card-body d-flex justify-content-between align-items-center w-100">
+      <h5 class="card-title mb-0 ${isSelected ? 'text-secondary' : ''}">${escapeHTML(trip.name)}</h5>
+      <div class="trip-amounts text-end" aria-hidden="true"></div>
     </div>
   `;
+  // Async: compute and render currency totals for this trip (non-archived expenses only)
+  queueMicrotask(async () => {
+    try {
+      const expenses = await getExpensesByTripId(trip.id);
+      const totals = new Map();
+      (expenses || []).filter(e=>!e.archived).forEach(e => {
+        const cur = e.currency || '';
+        const amt = Number(e.amount) || 0;
+        totals.set(cur, (totals.get(cur)||0) + amt);
+      });
+      const order = ['£', '$', '€', 'zł'];
+      const sorted = Array.from(totals.entries()).sort((a,b) => {
+        const ai = order.indexOf(a[0]); const bi = order.indexOf(b[0]);
+        if (ai === -1 && bi === -1) return a[0].localeCompare(b[0]);
+        if (ai === -1) return 1; if (bi === -1) return -1; return ai - bi;
+      });
+      const holder = card.querySelector('.trip-amounts');
+      if (holder) {
+        const cls = isSelected ? '' : ' text-placeholder';
+        holder.innerHTML = sorted.map(([cur, sum]) => `<p class="fw-bold mb-0${cls}">${escapeHTML(cur)}${sum.toFixed(2)}</p>`).join('');
+        // Apply compaction class based on count (cap at 3)
+        try {
+          holder.classList.remove('trip-amounts--n1','trip-amounts--n2','trip-amounts--n3');
+          const n = Math.max(1, Math.min(3, sorted.length));
+          holder.classList.add(`trip-amounts--n${n}`);
+        } catch {}
+      }
+    } catch {}
+  });
   // Swipe gestures for status change (Active only): right→Submitted (green), left→Reimbursed (purple)
   try {
     (async () => {
       const sw = await (typeof getTripSwipeSettings === 'function' ? getTripSwipeSettings() : {});
       const enabled = sw.enable !== false; // default ON
       if (!enabled) return;
-    const content = card.querySelector('.card-body');
-    card.style.position = 'relative';
-    card.style.overflow = 'hidden';
+      // Trip swipes work regardless of selection to change status
+      const content = card.querySelector('.card-body');
+      card.style.position = 'relative';
+      card.style.overflow = 'hidden';
       card.style.touchAction = 'pan-y';
-      const reveal = document.createElement('div');
-      reveal.style.position = 'absolute'; reveal.style.inset='0'; reveal.style.zIndex='0';
-      reveal.style.borderRadius = getComputedStyle(card).borderRadius || '0.25rem';
-      reveal.style.overflow = 'hidden';
-      const left = document.createElement('div');
-      left.style.position='absolute'; left.style.left='0'; left.style.top='0'; left.style.bottom='0'; left.style.width='50%'; left.style.background='#7aa992';
-      const li=document.createElement('i'); li.className='bi bi-check2'; li.style.color='#fff'; li.style.position='absolute'; li.style.left='12px'; li.style.top='50%'; li.style.transform='translateY(-50%)'; left.appendChild(li);
-      const right = document.createElement('div');
-      right.style.position='absolute'; right.style.right='0'; right.style.top='0'; right.style.bottom='0'; right.style.width='50%'; right.style.background='#a78bfa';
-      const ri=document.createElement('i'); ri.className='bi bi-coin'; ri.style.color='#fff'; ri.style.position='absolute'; ri.style.right='12px'; ri.style.top='50%'; ri.style.transform='translateY(-50%)'; right.appendChild(ri);
-      reveal.append(left,right);
-      reveal.style.opacity='0'; reveal.style.transition='opacity 100ms ease';
-      card.prepend(reveal);
-      content.style.position='relative'; content.style.zIndex='1'; content.style.background='transparent';
+      
+      // Store original background for restoration
+      const originalBg = card.style.background || getComputedStyle(card).background;
+      
+      // Choose gradient colors per current status
+      const BLUE = (getComputedStyle(document.documentElement).getPropertyValue('--theme-color-blue-dusty') || COLORS.BLUE_DUSTY).trim();
+      let leftColor = COLORS.GREEN, rightColor = COLORS.PURPLE;
+      if (trip.status === 'active') { leftColor = COLORS.GREEN; rightColor = BLUE; }
+      else if (trip.status === 'submitted') { leftColor = COLORS.PURPLE; rightColor = BLUE; }
+      else if (trip.status === 'reimbursed') { leftColor = COLORS.GREY; rightColor = COLORS.GREEN; }
+      const gradientBg = `linear-gradient(90deg, ${leftColor} 0 50%, ${rightColor} 50% 100%)`;
+      
+      // Create icons as part of background layer (z-index 0)
+      const iconsLayer = document.createElement('div');
+      iconsLayer.style.position = 'absolute';
+      iconsLayer.style.inset = '0';
+      iconsLayer.style.zIndex = UI_CONSTANTS.ICON_Z_INDEX;  // Behind content
+      iconsLayer.style.pointerEvents = 'none';
+      iconsLayer.style.opacity = '0';
+      iconsLayer.style.borderRadius = UI_CONSTANTS.BORDER_RADIUS;
+      
+      // Icons positioned in the background layer
+      const li=document.createElement('i');
+      const ri=document.createElement('i');
+      // Pick icons per status (left half for right swipe; right half for left swipe)
+      if (trip.status === 'active') { li.className='bi bi-check2'; ri.className='bi bi-pencil'; }
+      else if (trip.status === 'submitted') { li.className='bi bi-coin'; ri.className='bi bi-receipt'; }
+      else if (trip.status === 'reimbursed') { li.className='bi bi-archive'; ri.className='bi bi-check2'; }
+      [li, ri].forEach(icon => { icon.style.color='#fff'; icon.style.position='absolute'; icon.style.top='50%'; icon.style.transform='translateY(-50%)'; icon.style.fontSize='1.2em'; });
+      li.style.left='12px'; ri.style.right='12px';
+      iconsLayer.append(li, ri);
+      card.prepend(iconsLayer);
+      
+      content.style.position='relative'; content.style.zIndex='1';
+      content.style.willChange = 'transform';
+      
+      // Trip card monitoring - controlled by global debug button
+      if (window.debugTripCards) {
+        const monitorInterval = setInterval(() => {
+          if (!window.debugTripCards.isMonitoring || !document.contains(card)) {
+            clearInterval(monitorInterval);
+            window.debugTripCards.intervals.delete(monitorInterval);
+            return;
+          }
+          
+          // L1-CARD (main card element with background)
+          const cardRect = card.getBoundingClientRect();
+          const cardStyle = getComputedStyle(card);
+          
+          // L2-CONTENT (card body that transforms)
+          const contentRect = content.getBoundingClientRect();
+          const contentStyle = getComputedStyle(content);
+          
+          console.log(`🔵 TRIP ${trip.id} t=${Date.now()}:`);
+          console.log(`  L1-CARD: pos(${cardRect.left.toFixed(1)},${cardRect.top.toFixed(1)}) size(${cardRect.width.toFixed(1)}x${cardRect.height.toFixed(1)}) br=${cardStyle.borderRadius} z=${cardStyle.zIndex} bg=${cardStyle.background}`);
+          console.log(`  L2-CONTENT: pos(${contentRect.left.toFixed(1)},${contentRect.top.toFixed(1)}) size(${contentRect.width.toFixed(1)}x${contentRect.height.toFixed(1)}) br=${contentStyle.borderRadius} z=${contentStyle.zIndex} transform=${content.style.transform || 'none'}`);
+        }, 100);
+        window.debugTripCards.intervals.add(monitorInterval);
+      }
       let startX=0, curX=0, swiping=false;
-      const onTouchStart = (e)=>{ const t=e.touches?.[0]; if(!t) return; startX=curX=t.clientX; swiping=true; content.style.transition='none'; reveal.style.opacity='1'; };
-      const onTouchMove = (e)=>{ if(!swiping) return; const t=e.touches?.[0]; if(!t) return; curX=t.clientX; let dx=curX-startX; const max=Math.round(card.offsetWidth*0.3); if(dx>max) dx=max; if(dx<-max) dx=-max; content.style.transform=`translateX(${dx}px)`; e.preventDefault(); };
+      const onTouchStart = (e)=>{ 
+        console.log(`🔵 TRIP TOUCH START: sorting=${window.__sortingTrips}, hasBlueClass=${card.classList.contains('btn-custom-blue')}, touches=${e.touches?.length}`);
+        if (window.__sortingTrips) return; 
+        if (!card.classList.contains('btn-custom-blue')) return; 
+        const t=e.touches?.[0]; 
+        if(!t) return; 
+        startX=curX=t.clientX; 
+        swiping=true; 
+        content.style.transition='none';
+        console.log(`🔵 TRIP SWIPE STARTED: startX=${startX}, cardWidth=${card.offsetWidth}`);
+      };
+      const onTouchMove = (e)=>{ 
+        console.log(`🔵 TRIP TOUCH MOVE: swiping=${swiping}, sorting=${window.__sortingTrips}, touches=${e.touches?.length}`);
+        if(!swiping || window.__sortingTrips) return; 
+        const t=e.touches?.[0]; 
+        if(!t) return; 
+        curX=t.clientX; 
+        let dx=curX-startX; 
+        const max=43; // 12px (edge) + 19.2px (icon) + 12px (gap) = 43.2px 
+        if(dx>max) dx=max; 
+        if(dx<-max) dx=-max; 
+        // Enhanced temporal tracking - log EVERY movement with full layer state
+        const cardStyle = getComputedStyle(card);
+        const contentStyle = getComputedStyle(content);
+        const contentTransform = content.style.transform;
+        console.log(`🔵 TRIP dx=${dx.toFixed(3)} t=${Date.now()}:`);
+        console.log(`  L1-CARD: bg=${cardStyle.background}, br=${cardStyle.borderRadius}, border=${cardStyle.border}`);
+        console.log(`  L2-CONTENT: bg=${contentStyle.backgroundColor}, br=${contentStyle.borderRadius}, transform=${contentTransform}`);
+        console.log(`  MOVEMENT: startX=${startX}, curX=${curX}, max=${max}, thresh=${Math.max(10, 43)}`);
+        content.style.transform=`translateX(${dx}px)`; const thresh = Math.max(10, 43); 
+        // Change card background, border, and show icons during swipe
+        if (Math.abs(dx) > 2) {
+          card.style.background = gradientBg;
+          // Set border color based on swipe direction
+          const borderColor = dx > 0 ? leftColor : rightColor;
+          card.style.borderColor = borderColor;
+          card.style.borderWidth = '3px'; // Make border more visible
+          iconsLayer.style.opacity = '1';
+        } else {
+          card.style.background = originalBg;
+          card.style.borderColor = '';
+        card.style.borderWidth = '';
+          iconsLayer.style.opacity = '0';
+        }
+        e.preventDefault(); };
       const onTouchEnd = async ()=>{ if(!swiping) return; swiping=false; const dx=curX-startX; content.style.transition='transform 150ms ease';
         const parentId = card.parentElement && card.parentElement.id || '';
-        if (parentId==='active-trips-container') {
-          const thresh = Math.round(card.offsetWidth*0.2);
-          if (dx>thresh) { content.style.transform='translateX(0)'; reveal.style.opacity='0'; try { trip.status='submitted'; await saveTrip(trip); await renderTripLists(trip.id); } catch (e) {} }
-          else if (dx<-thresh) { content.style.transform='translateX(0)'; try { trip.status='reimbursed'; await saveTrip(trip); await renderTripLists(trip.id); } catch (e) {} finally { reveal.style.opacity='0'; } }
-          else { content.style.transform='translateX(0)'; reveal.style.opacity='0'; }
-        } else { content.style.transform='translateX(0)'; reveal.style.opacity='0'; }
+        const thresh = 43; // 12px (edge) + 19.2px (icon) + 12px (gap) = 43.2px
+        let changed = false;
+        try {
+          if (parentId==='active-trips-container') {
+            if (dx>thresh) { trip.status='submitted'; changed=true; }
+            else if (dx<-thresh) { await startTripRename(); }
+          } else if (parentId==='submitted-trips-container') {
+            if (dx>thresh) { trip.status='reimbursed'; changed=true; }
+            else if (dx<-thresh) { trip.status='active'; changed=true; }
+          } else if (parentId==='reimbursed-trips-container') {
+            if (dx>thresh) { trip.status='archived'; changed=true; }
+            else if (dx<-thresh) { trip.status='submitted'; changed=true; }
+          }
+          if (changed) { await saveTrip(trip); await renderTripLists(trip.id); }
+        } catch (e) {}
+        content.style.transform='translateX(0)'; 
+        card.style.background = originalBg;
+        iconsLayer.style.opacity = '0';
       };
       card.addEventListener('touchstart', onTouchStart, { passive:true });
       card.addEventListener('touchmove', onTouchMove, { passive:false });
       card.addEventListener('touchend', onTouchEnd);
+      
+      // Desktop mouse swipe support
+      let mouseSwipeStartX = 0;
+      let mouseSwipeCurX = 0;
+      let isMouseSwiping = false;
+      const onMouseStart = (e) => {
+        if (window.__sortingTrips) return;
+        if (!card.classList.contains('btn-custom-blue')) return;
+        mouseSwipeStartX = mouseSwipeCurX = e.clientX;
+        isMouseSwiping = true;
+        content.style.transition = 'none';
+        e.preventDefault();
+      };
+      const onMouseMove = (e) => {
+        if (!isMouseSwiping || window.__sortingTrips) return;
+        mouseSwipeCurX = e.clientX;
+        let dx = mouseSwipeCurX - mouseSwipeStartX;
+        const max = SWIPE_DISTANCE; // Global swipe distance configuration
+        if (dx > max) dx = max;
+        if (dx < -max) dx = -max;
+        content.style.transform = `translateX(${dx}px)`;
+        const thresh = Math.max(10, 43); // 12px (edge) + 19.2px (icon) + 12px (gap) = 43.2px
+        // Change card background, border, and show icons during swipe
+        if (Math.abs(dx) > 2) {
+          card.style.background = gradientBg;
+          // Set border color based on swipe direction
+          const borderColor = dx > 0 ? leftColor : rightColor;
+          card.style.borderColor = borderColor;
+          card.style.borderWidth = '3px'; // Make border more visible
+          iconsLayer.style.opacity = '1';
+        } else {
+          card.style.background = originalBg;
+          card.style.borderColor = '';
+        card.style.borderWidth = '';
+          iconsLayer.style.opacity = '0';
+        }
+        e.preventDefault();
+      };
+      const onMouseEnd = async (e) => {
+        if (!isMouseSwiping) return;
+        isMouseSwiping = false;
+        const dx = mouseSwipeCurX - mouseSwipeStartX;
+        content.style.transition = 'transform 150ms ease';
+        const thresh = 43; // 12px (edge) + 19.2px (icon) + 12px (gap) = 43.2px
+        
+        didSwipeAction = false;
+        // Same logic as touch swipe
+        if (Math.abs(dx) > thresh) {
+          didSwipeAction = true;
+          if (dx > 0) {
+            // Right swipe
+            if (trip.status === 'active') {
+              trip.status = 'submitted'; await saveTrip(trip); await renderTripLists(trip.id);
+            } else if (trip.status === 'submitted') {
+              trip.status = 'reimbursed'; await saveTrip(trip); await renderTripLists(trip.id);
+            } else if (trip.status === 'reimbursed') {
+              trip.status = 'archived'; await saveTrip(trip); await renderTripLists();
+            }
+          } else {
+            // Left swipe  
+            if (trip.status === 'active') {
+              await startTripRename();
+            } else if (trip.status === 'submitted') {
+              trip.status = 'active'; await saveTrip(trip); await renderTripLists(trip.id);
+            } else if (trip.status === 'reimbursed') {
+              trip.status = 'submitted'; await saveTrip(trip); await renderTripLists(trip.id);
+            }
+          }
+        }
+        
+        // Reset visual state
+        content.style.transform = 'translateX(0)';
+        card.style.background = originalBg;
+        iconsLayer.style.opacity = '0';
+      };
+      
+      card.addEventListener('mousedown', onMouseStart);
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseEnd);
+      
+      // Ensure click interactions always reset swipe visuals
+      card.addEventListener('click', () => { 
+        try { 
+          content.style.transform='translateX(0)'; 
+          reveal.style.opacity='0'; 
+          isMouseSwiping = false;
+        } catch {} 
+      });
     })();
   } catch (e) {}
+  async function startTripRename() {
+    try {
+      const content = card.querySelector('.card-body');
+      if (!content) return;
+      const title = content.querySelector('.card-title');
+      const currentName = trip.name || '';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'form-control';
+      input.value = currentName;
+      // Match shadow card visual width: reserve ~110px button + 0.5rem gap
+      input.style.flex = '0 1 auto';
+      input.style.minWidth = '0';
+      input.style.maxWidth = 'calc(100% - 110px - 0.5rem)';
+      title.replaceWith(input);
+      input.focus();
+      const finish = async (save) => {
+        input.disabled = true;
+        if (save) {
+          const val = (input.value || '').trim();
+          if (val && val !== currentName) { trip.name = val; await saveTrip(trip); }
+        }
+        await renderTripLists(trip.id);
+      };
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
+      input.addEventListener('blur', () => finish(true), { once: true });
+    } catch (e) { console.warn('rename failed', e); }
+  }
+  // Timer-based double-click handling for proper two-stage selection
+  let tripClickTimer = null;
+  let tripWasSelectedAtClickStart = false;
+  
   card.addEventListener('click', (e) => {
-    // If already selected, navigate to details on tap (mobile-friendly)
-    if (card.classList.contains('btn-custom-blue')) {
-      renderTripDetail(trip.id);
-    } else if (e.detail >= 2) {
-      renderTripDetail(trip.id);
+    // Don't navigate if we just performed a swipe action
+    if (didSwipeAction) {
+      didSwipeAction = false;
+      return;
+    }
+    
+    // Capture selection state at the moment of first click
+    const isCurrentlySelected = card.classList.contains('btn-custom-blue');
+    
+    if (tripClickTimer === null) {
+      // First click in sequence - capture initial state
+      tripWasSelectedAtClickStart = isCurrentlySelected;
+      
+      // Set timer to handle single-click after delay
+      tripClickTimer = setTimeout(() => {
+        tripClickTimer = null;
+        
+        if (!tripWasSelectedAtClickStart) {
+          // Single-click on unselected card - select it
+          selectTripCard(card, trip);
+        }
+        // Single-click on selected card - do nothing (keep selection)
+      }, UI_CONSTANTS.DOUBLE_CLICK_DELAY); // Global double-click delay
+      
     } else {
-      selectTrip(trip.id);
+      // Second click in sequence (double-click) - clear timer
+      clearTimeout(tripClickTimer);
+      tripClickTimer = null;
+      
+      if (tripWasSelectedAtClickStart) {
+        // Double-click on card that was selected at start - open details
+        renderTripDetail(trip.id);
+      } else {
+        // Double-click on card that was unselected at start - just select
+        selectTripCard(card, trip);
+      }
     }
   });
+
+  function selectTripCard(card, trip) {
+    console.log(`🔵 SELECT TRIP: trip=${trip.id}, current=${currentSelectedTripId}`);
+    // Select trip without full re-render to avoid breaking drag state
+    const container = card.closest('#trip-list-container');
+    if (container && currentSelectedTripId !== trip.id) {
+      console.log(`🔵 SELECTING: Clearing previous, setting new selection`);
+      // Clear previous selection
+      container.querySelectorAll('.trip-card').forEach(c => {
+        c.classList.remove('text-white', 'btn-custom-blue');
+        const title = c.querySelector('.card-title');
+        if (title) title.classList.remove('text-secondary');
+        const amounts = c.querySelector('.trip-amounts');
+        if (amounts) {
+          amounts.querySelectorAll('p').forEach(p => p.classList.add('text-placeholder'));
+        }
+      });
+      // Set new selection
+      currentSelectedTripId = trip.id;
+      card.classList.add('text-white', 'btn-custom-blue');
+      setTimeout(() => console.log(`🔵 SELECTED:`, {id: trip.id, bg: getComputedStyle(card).backgroundColor, br: getComputedStyle(card).borderRadius, classes: card.className}), 5);
+      const title = card.querySelector('.card-title');
+      if (title) title.classList.add('text-secondary');
+      const amounts = card.querySelector('.trip-amounts');
+      if (amounts) {
+        amounts.querySelectorAll('p').forEach(p => p.classList.remove('text-placeholder'));
+      }
+    }
+  }
+
+  // Add desktop swipe simulation via right-click context menu
+  card.addEventListener('contextmenu', (e) => {
+    if (!card.classList.contains('btn-custom-blue')) return; // Only for selected cards
+    e.preventDefault();
+    
+    const status = trip.status;
+    let actions = [];
+    
+    if (status === 'active') {
+      actions = [
+        { label: '→ Submit Trip', action: () => { trip.status = 'submitted'; saveTrip(trip).then(() => renderTripLists(trip.id)); }},
+        { label: '← Rename Trip', action: () => startRename() }
+      ];
+    } else if (status === 'submitted') {
+      actions = [
+        { label: '→ Mark Reimbursed', action: () => { trip.status = 'reimbursed'; saveTrip(trip).then(() => renderTripLists(trip.id)); }},
+        { label: '← Return to Active', action: () => { trip.status = 'active'; saveTrip(trip).then(() => renderTripLists(trip.id)); }}
+      ];
+    } else if (status === 'reimbursed') {
+      actions = [
+        { label: '→ Archive Trip', action: () => { trip.status = 'archived'; saveTrip(trip).then(() => renderTripLists()); }},
+        { label: '← Return to Submitted', action: () => { trip.status = 'submitted'; saveTrip(trip).then(() => renderTripLists(trip.id)); }}
+      ];
+    }
+    
+    if (actions.length > 0) {
+      showContextMenu(e.clientX, e.clientY, actions);
+    }
+  });
+
   return card;
+}
+
+function showContextMenu(x, y, actions) {
+  // Remove any existing context menu
+  const existing = document.getElementById('context-menu');
+  if (existing) existing.remove();
+  
+  const menu = document.createElement('div');
+  menu.id = 'context-menu';
+  menu.style.cssText = `
+    position: fixed; z-index: 9999; background: white; border: 1px solid #ccc; 
+    border-radius: 4px; padding: 4px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    left: ${x}px; top: ${y}px; min-width: 150px;
+  `;
+  
+  actions.forEach(action => {
+    const item = document.createElement('div');
+    item.textContent = action.label;
+    item.style.cssText = 'padding: 8px 12px; cursor: pointer; hover: background: #f0f0f0;';
+    item.addEventListener('mouseenter', () => item.style.backgroundColor = '#f0f0f0');
+    item.addEventListener('mouseleave', () => item.style.backgroundColor = '');
+    item.addEventListener('click', () => {
+      action.action();
+      menu.remove();
+    });
+    menu.appendChild(item);
+  });
+  
+  document.body.appendChild(menu);
+  
+  // Remove on click outside
+  const removeMenu = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener('click', removeMenu);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', removeMenu), 0);
 }
 
 function buildAddTripShadowCard() {
@@ -570,6 +1032,8 @@ function buildAddTripShadowCard() {
   const renderShadow = () => {
     editing = false;
     card.classList.remove('editing');
+    console.log(`🔶 TRIP SHADOW: Unselected state`);
+    setTimeout(() => console.log(`🔶 CARD:`, {w: card.offsetWidth, h: card.offsetHeight, bg: getComputedStyle(card).backgroundColor, br: getComputedStyle(card).borderRadius, z: getComputedStyle(card).zIndex}), 10);
     card.innerHTML = `
       <div class="card-body edit-row w-100">
         <input type="text" class="form-control" value="Trip" aria-label="Trip name" readonly 
@@ -583,6 +1047,8 @@ function buildAddTripShadowCard() {
 
   const renderEditor = () => {
     card.classList.add('editing');
+    console.log(`🔶 TRIP SHADOW: Selected/editing state`);
+    setTimeout(() => console.log(`🔶 CARD:`, {w: card.offsetWidth, h: card.offsetHeight, bg: getComputedStyle(card).backgroundColor, br: getComputedStyle(card).borderRadius, z: getComputedStyle(card).zIndex}), 10);
     card.innerHTML = `
       <div class="card-body edit-row w-100">
         <input type="text" class="form-control" aria-label="Trip name" id="new-trip-name">
@@ -633,30 +1099,37 @@ function buildAddTripShadowCard() {
   return card;
 }
 
+let currentSelectedTripId = null;
+let tripDeselectHandler = null;
+
 async function renderTripLists(selectedTripId = null) {
   dbg('renderTripLists:start', { selectedTripId });
+  currentSelectedTripId = selectedTripId;
   const trips = await getAllTrips();
+  let newTrips = document.getElementById('new-trips-container');
   let active = document.getElementById('active-trips-container');
   let submitted = document.getElementById('submitted-trips-container');
   let reimbursed = document.getElementById('reimbursed-trips-container');
-  if (!active || !submitted || !reimbursed) {
+  if (!newTrips || !active || !submitted || !reimbursed) {
     console.warn('[UI] Trip containers missing; re-rendering shell');
     await renderShell();
+    newTrips = document.getElementById('new-trips-container');
     active = document.getElementById('active-trips-container');
     submitted = document.getElementById('submitted-trips-container');
     reimbursed = document.getElementById('reimbursed-trips-container');
-    if (!active || !submitted || !reimbursed) {
+    if (!newTrips || !active || !submitted || !reimbursed) {
       console.error('[UI] Trip containers still missing after shell render');
       return;
     }
   }
 
+  newTrips.innerHTML = '';
   active.innerHTML = '';
   submitted.innerHTML = '';
   reimbursed.innerHTML = '';
 
   const addCard = buildAddTripShadowCard();
-  active.appendChild(addCard);
+  newTrips.appendChild(addCard);
 
   const byPos = (a, b) => {
     const ap = Number.isFinite(a.position) ? a.position : Number.POSITIVE_INFINITY;
@@ -667,36 +1140,111 @@ async function renderTripLists(selectedTripId = null) {
     return ad - bd;
   };
 
+  // All 'active' status trips go in "Active" section (regardless of expense count)
+  // "New" section is only for the add trip shadow card
   const activeTrips = trips.filter(t => t.status === 'active').sort(byPos);
-  activeTrips.forEach(trip => active.appendChild(buildTripCard(trip, trip.id === selectedTripId)));
+  for (const trip of activeTrips) {
+    active.appendChild(buildTripCard(trip, trip.id === selectedTripId));
+  }
+
+  // Add placeholder text for empty active section
+  if (active.children.length === 0) {
+    active.innerHTML = '<p class="text-center text-placeholder">No <em>Active</em> Trips</p>';
+  }
 
   const submittedTrips = trips.filter(t => t.status === 'submitted').sort(byPos);
   if (submittedTrips.length > 0) {
     submittedTrips.forEach(trip => submitted.appendChild(buildTripCard(trip, trip.id === selectedTripId)));
   } else {
-    submitted.innerHTML = '<p class="text-center text-placeholder">No submitted trips</p>';
+    submitted.innerHTML = '<p class="text-center text-placeholder">No <em>Submitted</em> Trips</p>';
   }
 
   const reimbursedTrips = trips.filter(t => t.status === 'reimbursed').sort(byPos);
   if (reimbursedTrips.length > 0) {
     reimbursedTrips.forEach(trip => reimbursed.appendChild(buildTripCard(trip, trip.id === selectedTripId)));
   } else {
-    reimbursed.innerHTML = '<p class="text-center text-placeholder">No reimbursed trips</p>';
+    reimbursed.innerHTML = '<p class="text-center text-placeholder">No <em>Reimbursed</em> Trips</p>';
   }
 
-  [active, submitted, reimbursed].forEach(container => {
+  [newTrips, active, submitted, reimbursed].forEach(container => {
     try {
+      // New trips container doesn't accept drops, only pulls
+      const groupConfig = container.id === 'new-trips-container' 
+        ? { name: 'shared', pull: true, put: false }
+        : 'shared';
+      
       new Sortable(container, {
-        group: 'shared',
+        group: groupConfig,
         animation: 150,
         ghostClass: 'ghost-card',
-        draggable: '.trip-card',
+        // Only allow dragging selected trips (dull blue border)
+        draggable: '.trip-card.btn-custom-blue',
         filter: '.add-trip-card',
         delay: 150,
         delayOnTouchOnly: true,
         direction: 'vertical',
+        onMove: (evt, originalEvent) => {
+          const to = evt.to;
+          const ghost = document.querySelector('.ghost-card');
+          const draggedCard = evt.item;
+          
+          if (ghost && to && to.id === 'trip-archive-drop') {
+            // Hide ghost when over archive area
+            ghost.style.display = 'none';
+            
+            // Create or update placeholder inside archive box
+            let placeholder = document.getElementById('archive-placeholder');
+            if (!placeholder) {
+              placeholder = document.createElement('div');
+              placeholder.id = 'archive-placeholder';
+              placeholder.className = 'archive-placeholder card mb-3 trip-card';
+              to.appendChild(placeholder);
+            }
+            
+            // Copy the dragged card structure
+            const cardBody = draggedCard?.querySelector('.card-body');
+            if (cardBody) {
+              placeholder.innerHTML = `<div class="card-body d-flex justify-content-between align-items-center w-100">${cardBody.innerHTML}</div>`;
+            }
+            placeholder.style.display = 'block';
+            // Change Archive area to grey background with darker text
+            to.style.backgroundColor = '#e9ecef';
+            to.style.color = '#495057';
+            console.log('Placeholder created and shown');
+            
+          } else if (ghost) {
+            // Show ghost when not over archive area and remove placeholder
+            ghost.style.display = '';
+            const placeholder = document.getElementById('archive-placeholder');
+            if (placeholder) {
+              placeholder.remove();
+              console.log('Placeholder removed');
+            }
+            // Reset Archive area background
+            const archiveArea = document.getElementById('trip-archive-drop');
+            if (archiveArea) {
+              archiveArea.style.backgroundColor = '';
+              archiveArea.style.color = '';
+            }
+          }
+          return true;
+        },
+        onStart: (evt) => { 
+          window.__sortingTrips = true; 
+          // Visual debug - turn whole screen red when drag starts
+          document.body.style.backgroundColor = '#ffcccc';
+          console.log('Trip drag started', evt.item?.dataset?.tripId, evt.item?.className);
+        },
         onEnd: async () => {
+          // Clean up placeholder on drag end
+          const placeholder = document.getElementById('archive-placeholder');
+          if (placeholder) {
+            placeholder.remove();
+          }
+          // Reset screen background
+          document.body.style.backgroundColor = '';
           await syncTripOrderFromDOM();
+          try { window.__sortingTrips = false; } catch {}
           await renderTripLists();
         }
       });
@@ -704,10 +1252,80 @@ async function renderTripLists(selectedTripId = null) {
       console.error('[UI] Failed to init Sortable for container', container?.id, e);
     }
   });
+
+  // Enable Sortable drop into Archived box
+  try {
+    const dz = document.getElementById('trip-archive-drop');
+    if (dz) {
+      // Add visual feedback for drop zone
+      dz.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dz.style.backgroundColor = 'var(--trip-selection-bg-color)';
+        dz.style.color = 'var(--muted-grey)';
+      });
+      
+      dz.addEventListener('dragleave', (e) => {
+        dz.style.backgroundColor = '';
+        dz.style.color = '';
+      });
+      
+      dz.addEventListener('drop', (e) => {
+        dz.style.backgroundColor = '';
+        dz.style.color = '';
+      });
+      
+      new Sortable(dz, {
+        group: 'shared',
+        sort: false,
+        animation: 150,
+        onAdd: async (evt) => {
+          try {
+            const el = evt.item;
+            const tripId = el?.dataset?.tripId;
+            if (!tripId) return;
+            const t = await getTripById(tripId);
+            if (!t) return;
+            t.status = 'archived';
+            await saveTrip(t);
+            // Delay re-render to let drag operation complete
+            setTimeout(() => {
+              renderTripLists(null);
+            }, 100);
+          } catch (e) { console.error('Archive drop failed', e); }
+        }
+      });
+    }
+  } catch (e) { console.warn('Sortable init failed for archive drop', e); }
+
+  // Install outside-click deselect for trips on Trips view
+  try { if (tripDeselectHandler) document.removeEventListener('click', tripDeselectHandler, true); } catch {}
+  tripDeselectHandler = (ev) => {
+    const root = document.getElementById('trip-list-container');
+    if (!root) return;
+    const inTrips = ev.target instanceof Node && root.contains(ev.target);
+    const onTripCard = inTrips && ev.target.closest('.trip-card');
+    const onAddCard = inTrips && ev.target.closest('#add-trip-card');
+    if (currentSelectedTripId && (!inTrips || (!onTripCard && !onAddCard))) {
+      // Clear selection without full re-render
+      const selectedCard = root.querySelector('.trip-card.btn-custom-blue');
+      if (selectedCard) {
+        selectedCard.classList.remove('text-white', 'btn-custom-blue');
+        const title = selectedCard.querySelector('.card-title');
+        if (title) title.classList.remove('text-secondary');
+        const amounts = selectedCard.querySelector('.trip-amounts');
+        if (amounts) {
+          amounts.querySelectorAll('p').forEach(p => p.classList.add('text-placeholder'));
+        }
+      }
+      currentSelectedTripId = null;
+    }
+  };
+  document.addEventListener('click', tripDeselectHandler, true);
 }
 
 async function syncTripOrderFromDOM() {
   const containers = [
+    { id: 'new-trips-container', status: 'active' },
     { id: 'active-trips-container', status: 'active' },
     { id: 'submitted-trips-container', status: 'submitted' },
     { id: 'reimbursed-trips-container', status: 'reimbursed' }
@@ -733,10 +1351,456 @@ async function renderTrips(selectedTripId = null) {
     document.removeEventListener('click', expenseDeselectHandler, true);
     expenseDeselectHandler = null;
   }
+  // Clean up any prior trip deselect handler to avoid duplicates
+  if (tripDeselectHandler) {
+    document.removeEventListener('click', tripDeselectHandler, true);
+    tripDeselectHandler = null;
+  }
   if (!document.getElementById('trip-list-container')) {
     await renderShell();
   }
   await renderTripLists(selectedTripId);
+}
+
+async function renderArchivedTrips() {
+  const app = document.getElementById('app');
+  const icons = await loadIconSettings();
+  const trips = await getAllTrips(true);
+  const archived = trips.filter(t=>t.status==='archived').sort((a,b)=>{
+    const ad = a.createdAt?new Date(a.createdAt).getTime():0;
+    const bd = b.createdAt?new Date(b.createdAt).getTime():0;
+    return bd - ad;
+  });
+  app.innerHTML = `
+    <div class="container">
+      <div class="card card-uniform-height text-white btn-custom-blue">
+        <div class="card-body d-flex justify-content-center align-items-center" style="position: relative;">
+          <button id="back-to-trips" class="btn text-white btn-no-style header-btn-left" aria-label="Back to trips"><i class="bi ${icons.home} home-icon"></i></button>
+          <h4 class="header-title">Archived Trips</h4>
+          <button id="settings-btn" class="btn text-white btn-no-style header-btn-right" aria-label="Settings"><i class="bi ${icons.cog} home-icon"></i></button>
+        </div>
+      </div>
+      <main id="archived-list-container" class="mt-3"></main>
+    </div>
+  `;
+  document.getElementById('back-to-trips')?.addEventListener('click', ()=>renderTrips());
+  document.getElementById('settings-btn')?.addEventListener('click', renderSettingsPage);
+  const list = document.getElementById('archived-list-container');
+  if (!archived.length) { list.innerHTML = '<p class="text-center text-placeholder">No archived trips</p>'; return; }
+  
+  let selectedTripId = null; // Track selected archived trip
+  
+  archived.forEach(trip => {
+    // Use exact same buildTripCard function but override click behavior
+    const card = buildTripCard(trip, trip.id === selectedTripId);
+    
+    // Remove all existing event listeners by cloning the node
+    const newCard = card.cloneNode(true);
+    
+    // Ensure unselected titles are grey (since buildTripCard doesn't do this)
+    if (trip.id !== selectedTripId) {
+      const title = newCard.querySelector('.card-title');
+      if (title) title.className = 'card-title mb-0 text-placeholder';
+    }
+    
+    // Re-trigger the async currency computation for the cloned node
+    queueMicrotask(async () => {
+      try {
+        const expenses = await getExpensesByTripId(trip.id);
+        const totals = new Map();
+        (expenses || []).filter(e=>!e.archived).forEach(e => {
+          const cur = e.currency || '';
+          const amt = Number(e.amount) || 0;
+          totals.set(cur, (totals.get(cur)||0) + amt);
+        });
+        const order = ['£', '$', '€', 'zł'];
+        const sorted = Array.from(totals.entries()).sort((a,b) => {
+          const ai = order.indexOf(a[0]); const bi = order.indexOf(b[0]);
+          if (ai === -1 && bi === -1) return a[0].localeCompare(b[0]);
+          if (ai === -1) return 1; if (bi === -1) return -1; return ai - bi;
+        });
+        const holder = newCard.querySelector('.trip-amounts');
+        if (holder) {
+          const isSelected = newCard.classList.contains('btn-custom-blue');
+          const cls = isSelected ? '' : ' text-placeholder';
+          holder.innerHTML = sorted.map(([cur, sum]) => `<p class="fw-bold mb-0${cls}">${escapeHTML(cur)}${sum.toFixed(2)}</p>`).join('');
+          try {
+            holder.classList.remove('trip-amounts--n1','trip-amounts--n2','trip-amounts--n3');
+            const n = Math.max(1, Math.min(3, sorted.length));
+            holder.classList.add(`trip-amounts--n${n}`);
+          } catch {}
+        }
+      } catch {}
+    });
+    
+    // Add our custom click handler for archived trip selection
+    newCard.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      // Clear previous selection
+      const prevSelected = list.querySelector('.btn-custom-blue');
+      if (prevSelected) {
+        prevSelected.className = prevSelected.className.replace('text-white btn-custom-blue', '');
+        const prevTitle = prevSelected.querySelector('.card-title');
+        if (prevTitle) prevTitle.className = 'card-title mb-0 text-placeholder';
+        const amounts = prevSelected.querySelector('.trip-amounts');
+        if (amounts) {
+          amounts.querySelectorAll('p').forEach(p => p.className = 'fw-bold mb-0 text-placeholder');
+        }
+      }
+      
+      // Apply selection if different trip
+      if (selectedTripId !== trip.id) {
+        selectedTripId = trip.id;
+        newCard.className = 'card mb-3 trip-card card-uniform-height text-white btn-custom-blue';
+        const title = newCard.querySelector('.card-title');
+        if (title) title.className = 'card-title mb-0 text-secondary';
+        const amounts = newCard.querySelector('.trip-amounts');
+        if (amounts) {
+          amounts.querySelectorAll('p').forEach(p => p.className = 'fw-bold mb-0');
+        }
+        
+        // Add swipe functionality for selected archived trip
+        addArchivedTripSwipe(newCard, trip, () => {
+          selectedTripId = null;
+        });
+      } else {
+        selectedTripId = null;
+      }
+    });
+    
+    list.appendChild(newCard);
+  });
+
+  // Enable drag-and-drop for archived trip cards
+  try {
+    new Sortable(list, {
+      group: 'archived-trips',
+      animation: 150,
+      draggable: '.trip-card.btn-custom-blue', // Only selected trips
+      delay: 150,
+      delayOnTouchOnly: true,
+      onStart: () => {
+        console.log('Archived trip drag started');
+      }
+    });
+  } catch (e) {
+    console.warn('Failed to setup archived trips sortable', e);
+  }
+
+  // Add unarchive drop zones for desktop compatibility
+  if (archived.length > 0) {
+    const dropZoneWrapper = document.createElement('div');
+    dropZoneWrapper.className = 'mt-3';
+    
+    // Unarchive drop zone (full width)
+    const unarchiveZone = document.createElement('div');
+    unarchiveZone.id = 'trip-unarchive-drop';
+    unarchiveZone.className = 'drop-zone drop-zone--unarchive mb-2';
+    unarchiveZone.textContent = 'Drag here to unarchive';
+    
+    // Delete drop zone (full width)
+    const deleteZone = document.createElement('div');
+    deleteZone.id = 'trip-delete-drop';
+    deleteZone.className = 'drop-zone drop-zone--delete';
+    deleteZone.textContent = 'Drag here to delete';
+    
+    dropZoneWrapper.appendChild(unarchiveZone);
+    dropZoneWrapper.appendChild(deleteZone);
+    list.appendChild(dropZoneWrapper);
+    
+    // Setup drag-and-drop functionality
+    try {
+      // Unarchive drop zone
+      new Sortable(unarchiveZone, {
+        group: 'archived-trips',
+        sort: false,
+        animation: 150,
+        onAdd: async (evt) => {
+          try {
+            const el = evt.item;
+            const tripId = el?.dataset?.tripId;
+            if (!tripId) return;
+            const trip = await getTripById(tripId);
+            if (!trip) return;
+            trip.status = 'reimbursed'; // Return to reimbursed status
+            await saveTrip(trip);
+            // Remove element from drop zone
+            if (el && el.parentNode) {
+              el.parentNode.removeChild(el);
+            }
+          } finally {
+            await renderArchivedTrips(); // Refresh view
+          }
+        }
+      });
+      
+      // Delete drop zone
+      new Sortable(deleteZone, {
+        group: 'archived-trips', 
+        sort: false,
+        animation: 150,
+        onAdd: async (evt) => {
+          try {
+            const el = evt.item;
+            const tripId = el?.dataset?.tripId;
+            if (!tripId || !confirm('Delete this trip and all its expenses?')) return;
+            // Delete all expenses first
+            const expenses = await getExpensesByTripId(tripId);
+            for (const exp of expenses) {
+              await deleteReceiptsByExpenseId(exp.id);
+              await deleteExpenseById(exp.id);
+            }
+            // Delete the trip
+            await deleteTripById(tripId);
+            // Remove element from drop zone
+            if (el && el.parentNode) {
+              el.parentNode.removeChild(el);
+            }
+          } finally {
+            await renderArchivedTrips(); // Refresh view
+          }
+        }
+      });
+      
+    } catch (e) {
+      console.warn('Failed to setup archived trip drop zones', e);
+    }
+  }
+}
+
+async function addArchivedTripSwipe(card, trip, onDeselect) {
+  try {
+    const sw = await (typeof getTripSwipeSettings === 'function' ? getTripSwipeSettings() : {});
+    const enabled = sw.enable !== false; // default ON
+    if (!enabled) return;
+    
+    const content = card.querySelector('.card-body');
+    if (!content) return;
+    
+    card.style.position = 'relative';
+    card.style.overflow = 'hidden';
+    card.style.touchAction = 'pan-y';
+    
+    // Store original background for restoration
+    const originalBg = card.style.background || getComputedStyle(card).background;
+    
+    // Gradient background for both swipe directions
+    const gradientBg = `linear-gradient(90deg, ${COLORS.PURPLE} 0 50%, ${COLORS.RED} 50% 100%)`;
+    
+    // Create icons as part of background layer (z-index 0)
+    const iconsLayer = document.createElement('div');
+    iconsLayer.style.position = 'absolute';
+    iconsLayer.style.inset = '0';
+    iconsLayer.style.zIndex = UI_CONSTANTS.ICON_Z_INDEX;  // Behind content
+    iconsLayer.style.pointerEvents = 'none';
+    iconsLayer.style.opacity = '0';
+    iconsLayer.style.borderRadius = UI_CONSTANTS.BORDER_RADIUS;
+    
+    // Icons for both directions
+    const leftIcon = document.createElement('i');
+    leftIcon.className = 'bi bi-coin'; // unarchive
+    leftIcon.style.color = '#fff';
+    leftIcon.style.position = 'absolute';
+    leftIcon.style.top = '50%';
+    leftIcon.style.left = '12px';
+    leftIcon.style.transform = 'translateY(-50%)';
+    leftIcon.style.fontSize = '1.2em';
+    iconsLayer.appendChild(leftIcon);
+    
+    const rightIcon = document.createElement('i');
+    rightIcon.className = 'bi bi-trash'; // delete
+    rightIcon.style.color = '#fff';
+    rightIcon.style.position = 'absolute';
+    rightIcon.style.top = '50%';
+    rightIcon.style.right = '12px';
+    rightIcon.style.transform = 'translateY(-50%)';
+    rightIcon.style.fontSize = '1.2em';
+    iconsLayer.appendChild(rightIcon);
+    
+    card.prepend(iconsLayer);
+    
+    content.style.position = 'relative';
+    content.style.zIndex = '1';
+    content.style.willChange = 'transform';
+    
+    let startX = 0, curX = 0, swiping = false;
+    
+    const onTouchStart = (e) => {
+      const t = e.touches?.[0];
+      if (!t) return;
+      startX = curX = t.clientX;
+      swiping = true;
+      content.style.transition = 'none';
+    };
+    
+    const onTouchMove = (e) => {
+      if (!swiping) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      curX = t.clientX;
+      let dx = curX - startX;
+      const max = SWIPE_DISTANCE; // Global swipe distance configuration
+      
+      // Allow both left and right swipe
+      if (dx > max) dx = max;
+      if (dx < -max) dx = -max;
+      
+      content.style.transform = `translateX(${dx}px)`;
+      const thresh = Math.max(10, Math.round(card.offsetWidth * 0.11));
+      // Change card background, border, and show icons during swipe
+      if (Math.abs(dx) > 2) {
+        card.style.background = gradientBg;
+        // Set border color based on swipe direction (purple=left, red=right)
+        const borderColor = dx > 0 ? COLORS.PURPLE : COLORS.RED;
+        card.style.borderColor = borderColor;
+        iconsLayer.style.opacity = '1';
+      } else {
+        card.style.background = originalBg;
+        card.style.borderColor = '';
+        card.style.borderWidth = '';
+        iconsLayer.style.opacity = '0';
+      }
+      e.preventDefault();
+    };
+    
+    const onTouchEnd = async () => {
+      if (!swiping) return;
+      swiping = false;
+      const dx = curX - startX;
+      content.style.transition = 'transform 150ms ease';
+      
+      const thresh = 43; // 12px (edge) + 19.2px (icon) + 12px (gap) = 43.2px
+      let changed = false;
+      
+      try {
+        if (Math.abs(dx) > thresh) {
+          if (dx > 0) {
+            // Right swipe - unarchive (return to reimbursed)
+            trip.status = 'reimbursed';
+            await saveTrip(trip);
+            changed = true;
+            onDeselect(); // Clear selection
+            await renderTrips(); // Return to main trips view
+          } else {
+            // Left swipe - delete
+            if (confirm('Delete this trip and all its expenses?')) {
+              const expenses = await getExpensesByTripId(trip.id);
+              for (const expense of expenses) {
+                await deleteReceiptsByExpenseId(expense.id);
+                await deleteExpenseById(expense.id);
+              }
+              await deleteTripById(trip.id);
+              changed = true;
+              onDeselect(); // Clear selection
+              await renderArchivedTrips(); // Refresh archived view
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Archived trip swipe failed', e);
+      }
+      
+      if (!changed) {
+        content.style.transform = 'translateX(0)';
+        card.style.background = originalBg;
+        iconsLayer.style.opacity = '0';
+      }
+    };
+    
+    card.addEventListener('touchstart', onTouchStart, { passive: true });
+    card.addEventListener('touchmove', onTouchMove, { passive: false });
+    card.addEventListener('touchend', onTouchEnd);
+    
+    // Desktop mouse swipe support
+    let mouseSwipeStartX = 0, mouseSwipeCurX = 0, isMouseSwiping = false;
+    const onMouseStart = (e) => {
+      mouseSwipeStartX = mouseSwipeCurX = e.clientX;
+      isMouseSwiping = true;
+      content.style.transition = 'none';
+      e.preventDefault();
+    };
+    const onMouseMove = (e) => {
+      if (!isMouseSwiping) return;
+      mouseSwipeCurX = e.clientX;
+      let dx = mouseSwipeCurX - mouseSwipeStartX;
+      const max = SWIPE_DISTANCE; // Global swipe distance configuration
+      if (dx > max) dx = max;
+      if (dx < -max) dx = -max;
+      content.style.transform = `translateX(${dx}px)`;
+      const thresh = Math.max(10, Math.round(card.offsetWidth * 0.11));
+      // Change card background, border, and show icons during swipe
+      if (Math.abs(dx) > 2) {
+        card.style.background = gradientBg;
+        // Set border color based on swipe direction (purple=left, red=right)
+        const borderColor = dx > 0 ? COLORS.PURPLE : COLORS.RED;
+        card.style.borderColor = borderColor;
+        iconsLayer.style.opacity = '1';
+      } else {
+        card.style.background = originalBg;
+        card.style.borderColor = '';
+        card.style.borderWidth = '';
+        iconsLayer.style.opacity = '0';
+      }
+    };
+    const onMouseEnd = async () => {
+      if (!isMouseSwiping) return;
+      isMouseSwiping = false;
+      const dx = mouseSwipeCurX - mouseSwipeStartX;
+      content.style.transition = 'transform 150ms ease';
+      const thresh = 43; // 12px (edge) + 19.2px (icon) + 12px (gap) = 43.2px
+      let changed = false;
+      
+      try {
+        if (Math.abs(dx) > thresh) {
+          if (dx > 0) {
+            // Right swipe - unarchive
+            trip.status = 'reimbursed';
+            await saveTrip(trip);
+            changed = true;
+            onDeselect();
+            await renderTrips();
+          } else {
+            // Left swipe - delete
+            if (confirm('Delete this trip and all its expenses?')) {
+              const expenses = await getExpensesByTripId(trip.id);
+              for (const expense of expenses) {
+                await deleteReceiptsByExpenseId(expense.id);
+                await deleteExpenseById(expense.id);
+              }
+              await deleteTripById(trip.id);
+              changed = true;
+              onDeselect();
+              await renderArchivedTrips();
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Archived trip mouse swipe failed', e);
+      }
+      
+      if (!changed) {
+        content.style.transform = 'translateX(0)';
+        card.style.background = originalBg;
+        iconsLayer.style.opacity = '0';
+      }
+    };
+    
+    card.addEventListener('mousedown', onMouseStart);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseEnd);
+    
+    // Reset swipe visuals on click
+    card.addEventListener('click', () => {
+      try {
+        content.style.transform = 'translateX(0)';
+        reveal.style.opacity = '0';
+      } catch {}
+    });
+  } catch (e) {
+    console.error('Failed to add archived trip swipe', e);
+  }
 }
 
 async function renderTripDetail(tripId) {
@@ -847,11 +1911,14 @@ function pastelizeColor(color) {
   });
 }
 
-function buildExpenseCard(expense, isSelected) {
+function buildExpenseCard(expense, isSelected, context = 'normal') {
   const card = document.createElement('div');
   card.className = `card mb-3 card-uniform-height expense-card ${isSelected ? 'expense-card--selected' : ''}`;
   card.draggable = true;
   card.dataset.expenseId = expense.id;
+  
+  // Desktop mouse swipe support flag
+  let didSwipeAction = false;
   const expenseDate = new Date(expense.date);
   const dateOptions = { day: '2-digit', month: 'short', year: '2-digit' };
   const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
@@ -881,7 +1948,8 @@ function buildExpenseCard(expense, isSelected) {
   queueMicrotask(async () => {
     try {
       const map = await loadCategoryColorMap();
-      const color = map[expense.category] || DEFAULT_CATEGORY_COLORS['Other'];
+      const baseColor = map[expense.category] || DEFAULT_CATEGORY_COLORS['Other'];
+      const color = (typeof pastelizeColor === 'function') ? pastelizeColor(baseColor) : baseColor;
       const pill = card.querySelector('.expense-category-pill');
       if (pill) {
         pill.style.backgroundColor = color;
@@ -902,41 +1970,322 @@ function buildExpenseCard(expense, isSelected) {
     }
   });
   
-  // Desktop double-click to edit; single click = select
-  card.addEventListener('dblclick', async (e) => {
-    e.preventDefault();
-    await selectExpense(expense.id);
-    const fresh = document.querySelector(`[data-expense-id=\"${expense.id}\"]`);
-    if (fresh) startEditExpense(fresh, expense);
+  // Timer-based double-click handling for proper two-stage selection
+  let expenseClickTimer = null;
+  let expenseWasSelectedAtClickStart = false;
+  
+  card.addEventListener('click', (e) => {
+    // Don't handle clicks if we just performed a drag action
+    if (card.__didSwipeAction) {
+      card.__didSwipeAction = false;
+      return;
+    }
+    
+    if (context === 'archived') {
+      card.classList.toggle('expense-card--selected');
+      return;
+    }
+    
+    // Capture selection state at the moment of first click
+    const isCurrentlySelected = card.classList.contains('expense-card--selected');
+    
+    if (expenseClickTimer === null) {
+      // First click in sequence - capture initial state
+      expenseWasSelectedAtClickStart = isCurrentlySelected;
+      
+      // Set timer to handle single-click after delay
+      expenseClickTimer = setTimeout(() => {
+        expenseClickTimer = null;
+        
+        if (!expenseWasSelectedAtClickStart) {
+          // Single-click on unselected card - select it
+          selectExpenseCard(card, expense);
+        }
+        // Single-click on selected card - do nothing (keep selection)
+      }, UI_CONSTANTS.DOUBLE_CLICK_DELAY); // Global double-click delay
+      
+    } else {
+      // Second click in sequence (double-click) - clear timer
+      clearTimeout(expenseClickTimer);
+      expenseClickTimer = null;
+      
+      if (expenseWasSelectedAtClickStart) {
+        // Double-click on card that was selected at start - enter edit mode
+        startEditExpense(card, expense);
+      } else {
+        // Double-click on card that was unselected at start - just select
+        selectExpenseCard(card, expense);
+      }
+    }
   });
-  card.addEventListener('click', () => selectExpense(expense.id));
 
-  // Swipe gestures: right→edit (green), left→archive (orange)
+  function selectExpenseCard(card, expense) {
+    // For unselected cards: select them
+    const container = card.closest('#expense-list-container');
+    if (container && currentSelectedExpenseId !== expense.id) {
+      // Clear previous selection
+      container.querySelectorAll('.expense-card').forEach(c => c.classList.remove('expense-card--selected'));
+      // Set new selection
+      currentSelectedExpenseId = expense.id;
+      card.classList.add('expense-card--selected');
+    }
+  }
+
+  // Swipe gestures
   card.style.position = 'relative';
   card.style.touchAction = 'pan-y';
-  const reveal = document.createElement('div');
-  reveal.style.position = 'absolute'; reveal.style.inset = '0'; reveal.style.zIndex = '0';
-  reveal.style.borderRadius = getComputedStyle(card).borderRadius || '0.25rem';
-  reveal.style.background = 'linear-gradient(90deg, #198754 0 50%, #fd7e14 50% 100%)';
-  card.prepend(reveal);
+  
+  // Store original background for restoration
+  const originalBg = card.style.background || getComputedStyle(card).background;
+  
+  // Colors per context
+  // Using global color constants
+  // Build gradient per context: left half for right swipe, right half for left swipe
+  let gradientBg;
+  if (context === 'archived') {
+    // right→unarchive (green), left→delete (red)
+    gradientBg = `linear-gradient(90deg, ${COLORS.GREEN} 0 50%, ${COLORS.RED} 50% 100%)`;
+  } else {
+    // right→edit (green), left→archive (grey)
+    gradientBg = `linear-gradient(90deg, ${COLORS.GREEN} 0 50%, ${COLORS.GREY} 50% 100%)`;
+  }
+  
+  // Create icons as part of background layer (z-index 0)
+  const iconsLayer = document.createElement('div');
+  iconsLayer.style.position = 'absolute';
+  iconsLayer.style.inset = '0';
+  iconsLayer.style.zIndex = '0';  // Behind content
+  iconsLayer.style.pointerEvents = 'none';
+  iconsLayer.style.opacity = '0';
+  iconsLayer.style.borderRadius = '6px';
+  
+  // Icons
+  const li=document.createElement('i');
+  const ri=document.createElement('i');
+  if (context === 'archived') { li.className='bi bi-receipt'; ri.className='bi bi-trash3'; }
+  else { li.className='bi bi-pencil'; ri.className='bi bi-archive'; }
+  [li, ri].forEach(icon => { icon.style.color='#fff'; icon.style.position='absolute'; icon.style.top='50%'; icon.style.transform='translateY(-50%)'; icon.style.fontSize='1.2em'; });
+  li.style.left='12px'; ri.style.right='12px';
+  iconsLayer.append(li, ri);
+  card.prepend(iconsLayer);
+  
   const content = card.querySelector('.card-body') || card;
-  content.style.position = 'relative'; content.style.zIndex = '1';
-  let startX=0, curX=0, swiping=false;
-  const onTouchStart = (e)=>{ const t=e.touches?.[0]; if(!t) return; startX = curX = t.clientX; swiping=true; content.style.transition='none'; reveal.style.opacity='1'; };
-  const onTouchMove = (e)=>{ if(!swiping) return; const t=e.touches?.[0]; if(!t) return; curX=t.clientX; const dx=curX-startX; content.style.transform = `translateX(${dx}px)`; };
-  const onTouchEnd = async ()=>{ if(!swiping) return; swiping=false; const dx=curX-startX; content.style.transition='transform 150ms ease'; if(dx>80){ content.style.transform='translateX(0)'; reveal.style.opacity='0'; await selectExpense(expense.id); const fresh=document.querySelector(`[data-expense-id=\"${expense.id}\"]`); if(fresh) startEditExpense(fresh, expense);} else if(dx<-80){ content.style.transform='translateX(-100%)'; try{ expense.archived=true; await saveExpense(expense); const c=document.getElementById('expense-list-container'); const tripId=c?.dataset.tripId; if(tripId) await renderExpenseList(tripId,null);}catch{} finally { reveal.style.opacity='0'; } } else { content.style.transform='translateX(0)'; reveal.style.opacity='0'; } };
+  content.style.position = 'relative'; content.style.zIndex = '1'; content.style.willChange='transform';
+  
+  // No monitoring for expense cards during Trip debugging
+  let startX=0, curX=0, swiping=false, moved=false;
+  const onTouchStart = (e)=>{
+    if (window.__sortingExpenses) return;
+    if (card.dataset.dragging === '1') return;
+    // Gate to selected card only
+    if (!card.classList.contains('expense-card--selected')) return;
+    // Don't allow swipe in edit mode
+    if (card.querySelector('#save-expense-edit')) return;
+    const t=e.touches?.[0]; if(!t) return; startX = curX = t.clientX; swiping=true; moved=false; content.style.transition='none'; };
+  const onTouchMove = (e)=>{ if(!swiping) return; const t=e.touches?.[0]; if(!t) return; curX=t.clientX; let dx=curX-startX; const max=39; if(dx>max) dx=max; if(dx<-max) dx=-max; 
+    // Enhanced temporal tracking - log EVERY movement with full layer state
+    const cardStyle = getComputedStyle(card);
+    const contentStyle = getComputedStyle(content);
+    const contentTransform = content.style.transform;
+    console.log(`🔄 EXPENSE dx=${dx.toFixed(3)} t=${Date.now()}:`);
+    console.log(`  L1-CARD: bg=${cardStyle.background}, br=${cardStyle.borderRadius}, border=${cardStyle.border}`);
+    console.log(`  L2-CONTENT: bg=${contentStyle.backgroundColor}, br=${contentStyle.borderRadius}, transform=${contentTransform}`);
+    console.log(`  MOVEMENT: startX=${startX}, curX=${curX}, max=${max}, thresh=${Math.max(10, Math.round(card.offsetWidth*0.11))}`);
+    content.style.transform = `translateX(${dx}px)`; const thresh = Math.max(10, Math.round(card.offsetWidth*0.11)); const adx = Math.abs(dx); 
+    // Change card background and show icons during swipe
+    if (adx > 2) {
+      card.style.background = gradientBg;
+      iconsLayer.style.opacity = '1';
+    } else {
+      card.style.background = originalBg;
+      iconsLayer.style.opacity = '0';
+    }
+    moved=true; e.preventDefault(); };
+  const onTouchEnd = async ()=>{ if(!swiping) return; swiping=false; const dx=curX-startX; content.style.transition='transform 150ms ease'; const thresh=43;
+    try {
+      if (Math.abs(dx)>thresh) {
+        if (dx>0) {
+          // right swipe
+          if (context==='archived') {
+            expense.archived=false; await saveExpense(expense); await renderArchivedExpenses(expense.tripId);
+          } else {
+            // Set selection and start editing without full re-render
+            currentSelectedExpenseId = expense.id;
+            const container = card.closest('#expense-list-container');
+            if (container) {
+              container.querySelectorAll('.expense-card').forEach(c => c.classList.remove('expense-card--selected'));
+            }
+            card.classList.add('expense-card--selected');
+            startEditExpense(card, expense);
+          }
+        } else {
+          // left swipe
+          if (context==='archived') {
+            if (confirm('Delete this expense and its receipts?')) { await deleteReceiptsByExpenseId(expense.id); await deleteExpenseById(expense.id); await renderArchivedExpenses(expense.tripId); }
+          } else {
+            try{ expense.archived=true; await saveExpense(expense); const c=document.getElementById('expense-list-container'); const tripId=c?.dataset.tripId; if(tripId) await renderExpenseList(tripId,null);}catch{}
+          }
+        }
+      }
+    } finally { content.style.transform='translateX(0)'; card.style.background = originalBg; }
+  };
   card.addEventListener('touchstart', onTouchStart, { passive:true });
-  card.addEventListener('touchmove', onTouchMove, { passive:true });
+  card.addEventListener('touchmove', onTouchMove, { passive:false });
   card.addEventListener('touchend', onTouchEnd);
+  
+  // Desktop mouse swipe support
+  let mouseSwipeStartX = 0, mouseSwipeCurX = 0, isMouseSwiping = false;
+  const onMouseStart = (e) => {
+    if (window.__sortingExpenses) return;
+    if (card.dataset.dragging === '1') return;
+    if (!card.classList.contains('expense-card--selected')) return;
+    // Don't allow swipe in edit mode
+    if (card.querySelector('#save-expense-edit')) return;
+    mouseSwipeStartX = mouseSwipeCurX = e.clientX;
+    isMouseSwiping = true;
+    content.style.transition = 'none';
+    e.preventDefault();
+  };
+  const onMouseMove = (e) => {
+    if (!isMouseSwiping || window.__sortingExpenses) return;
+    mouseSwipeCurX = e.clientX;
+    let dx = mouseSwipeCurX - mouseSwipeStartX;
+    const max = SWIPE_DISTANCE; // Global swipe distance configuration
+    if (dx > max) dx = max;
+    if (dx < -max) dx = -max;
+    content.style.transform = `translateX(${dx}px)`;
+    const thresh = Math.max(10, Math.round(card.offsetWidth * 0.11));
+    // Change card background, border, and show icons during swipe
+    if (Math.abs(dx) > 2) {
+      card.style.background = gradientBg;
+      // Set border color based on swipe direction and context
+      let borderColor;
+      if (context === 'archived') {
+        // right→unarchive (green), left→delete (red)
+        borderColor = dx > 0 ? COLORS.GREEN : COLORS.RED;
+      } else {
+        // right→edit (green), left→archive (grey)  
+        borderColor = dx > 0 ? COLORS.GREEN : COLORS.GREY;
+      }
+      card.style.borderColor = borderColor;
+      iconsLayer.style.opacity = '1';
+    } else {
+      card.style.background = originalBg;
+      card.style.borderColor = '';
+      iconsLayer.style.opacity = '0';
+    }
+    e.preventDefault();
+  };
+  const onMouseEnd = async () => {
+    if (!isMouseSwiping) return;
+    isMouseSwiping = false;
+    const dx = mouseSwipeCurX - mouseSwipeStartX;
+    content.style.transition = 'transform 150ms ease';
+    const thresh = 43; // 12px (edge) + 19.2px (icon) + 12px (gap) = 43.2px
+    
+    didSwipeAction = false;
+    try {
+      if (Math.abs(dx) > thresh) {
+        didSwipeAction = true;
+        if (dx > 0) {
+          // Right swipe - edit expense
+          if (context === 'archived') {
+            expense.archived = false; 
+            await saveExpense(expense); 
+            await renderArchivedExpenses(expense.tripId);
+          } else {
+            // Set selection and start editing without full re-render
+            currentSelectedExpenseId = expense.id;
+            const container = card.closest('#expense-list-container');
+            if (container) {
+              container.querySelectorAll('.expense-card').forEach(c => c.classList.remove('expense-card--selected'));
+            }
+            card.classList.add('expense-card--selected');
+            startEditExpense(card, expense);
+          }
+        } else {
+          // Left swipe - archive expense
+          if (context === 'archived') {
+            if (confirm('Delete this expense and its receipts?')) { 
+              await deleteReceiptsByExpenseId(expense.id); 
+              await deleteExpenseById(expense.id); 
+              await renderArchivedExpenses(expense.tripId); 
+            }
+          } else {
+            try { 
+              expense.archived = true; 
+              await saveExpense(expense); 
+              const c = document.getElementById('expense-list-container'); 
+              const tripId = c?.dataset.tripId; 
+              if (tripId) await renderExpenseList(tripId, null);
+            } catch {}
+          }
+        }
+      }
+    } finally { 
+      content.style.transform = 'translateX(0)'; 
+      card.style.background = originalBg;
+   
+    }
+  };
+  
+  card.addEventListener('mousedown', onMouseStart);
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseEnd);
+  
+  // Reset on click
+  card.addEventListener('click', ()=>{ 
+    if (didSwipeAction) {
+      didSwipeAction = false;
+      return;
+    }
+    content.style.transform='translateX(0)'; 
+    card.style.background = originalBg;
+ 
+  });
+
+  // Mobile double-tap to edit (non-archived context)
+  if (context !== 'archived') {
+    let lastTapTime = 0, lastX = 0, lastY = 0;
+    card.addEventListener('touchend', async (e) => {
+      if (swiping && moved) return; // ignore if we swiped
+      const now = Date.now(); const t = e.changedTouches?.[0]; if (!t) return;
+      const dt = now - lastTapTime; const dx = Math.abs(t.clientX - lastX); const dy = Math.abs(t.clientY - lastY);
+      lastTapTime = now; lastX = t.clientX; lastY = t.clientY;
+      if (dt < 250 && dx < 25 && dy < 25) {
+        // Double-tap behavior: unselected = select only, selected = edit
+        const wasSelected = card.classList.contains('expense-card--selected');
+        
+        if (wasSelected) {
+          // Double-tap on selected card - enter edit mode
+          startEditExpense(card, expense);
+        } else {
+          // Double-tap on unselected card - select only
+          currentSelectedExpenseId = expense.id;
+          const container = card.closest('#expense-list-container');
+          if (container) {
+            container.querySelectorAll('.expense-card').forEach(c => c.classList.remove('expense-card--selected'));
+          }
+          card.classList.add('expense-card--selected');
+        }
+      }
+    });
+  }
 
   // Mobile long-press to edit (no extra buttons)
   attachLongPressToEdit(card, expense);
-  // Drag to archive support
+  // Drag support
   card.addEventListener('dragstart', (e) => {
     if (!e.dataTransfer) return;
+    // Only allow drag when selected
+    if (!card.classList.contains('expense-card--selected')) { e.preventDefault(); return; }
+    card.dataset.dragging = '1';
     e.dataTransfer.setData('text/expense-id', expense.id);
+    // Also set archived key for archived dropzones
+    e.dataTransfer.setData('text/archived-expense-id', expense.id);
     e.dataTransfer.effectAllowed = 'move';
   });
+  card.addEventListener('dragend', ()=>{ delete card.dataset.dragging; });
 
   // Receipt icon click → add (camera/photos) or preview
   const icon = card.querySelector('.expense-receipt-icon');
@@ -961,6 +2310,14 @@ function buildExpenseCard(expense, isSelected) {
 }
 
 function startEditExpense(card, expense) {
+  // Ensure card is selected when entering edit mode
+  const container = card.closest('#expense-list-container');
+  if (container) {
+    container.querySelectorAll('.expense-card').forEach(c => c.classList.remove('expense-card--selected'));
+  }
+  card.classList.add('expense-card--selected');
+  currentSelectedExpenseId = expense.id;
+  
   const cardBody = card.querySelector('.card-body');
   const hadUniform = card.classList.contains('card-uniform-height');
   if (hadUniform) card.classList.remove('card-uniform-height');
@@ -1008,16 +2365,32 @@ function startEditExpense(card, expense) {
 
   const onDocClick = (ev) => {
     if (!(ev.target instanceof Node) || !card.contains(ev.target)) {
-      document.removeEventListener('click', onDocClick, true);
-      // Restore original structure to keep alignment classes
-      cardBody.innerHTML = originalContent;
-      if (hadUniform) card.classList.add('card-uniform-height');
+      // Don't close if clicking on form fields would cause deselection
+      const isFormFieldClick = ev.target && (
+        ev.target.tagName === 'INPUT' || 
+        ev.target.tagName === 'TEXTAREA' || 
+        ev.target.tagName === 'SELECT' ||
+        ev.target.tagName === 'BUTTON'
+      );
+      if (!isFormFieldClick) {
+        document.removeEventListener('click', onDocClick, true);
+        // Restore original structure to keep alignment classes
+        cardBody.innerHTML = originalContent;
+        if (hadUniform) card.classList.add('card-uniform-height');
+      }
     }
   };
   document.addEventListener('click', onDocClick, true);
 
   // Colorize category dropdown options in edit mode
   colorizeCategorySelect(card.querySelector('#exp-cat-edit'));
+
+  // Focus first field and scroll into view
+  const firstInput = card.querySelector('#exp-desc-edit');
+  if (firstInput) {
+    firstInput.focus();
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   const saveBtn = card.querySelector('#save-expense-edit');
   saveBtn.addEventListener('click', async () => {
@@ -1032,8 +2405,38 @@ function startEditExpense(card, expense) {
     updatedExpense.category = card.querySelector('#exp-cat-edit').value;
     updatedExpense.notes = card.querySelector('#exp-notes-edit').value;
 
-    await saveExpense(updatedExpense);
-    await renderExpenseList(expense.tripId, expense.id);
+    // Check if any changes were actually made
+    const hasChanges = (
+      updatedExpense.description !== expense.description ||
+      updatedExpense.currency !== expense.currency ||
+      updatedExpense.amount !== expense.amount ||
+      updatedExpense.date !== expense.date ||
+      updatedExpense.category !== expense.category ||
+      updatedExpense.notes !== expense.notes
+    );
+
+    if (hasChanges) {
+      await saveExpense(updatedExpense);
+      // Update the original expense object for immediate UI update
+      Object.assign(expense, updatedExpense);
+    }
+    
+    // Rebuild card content with potentially updated data
+    const container = card.closest('#expense-list-container');
+    const tripId = container?.dataset.tripId;
+    if (tripId) {
+      const wasSelected = card.classList.contains('expense-card--selected');
+      const freshCard = buildExpenseCard(expense, wasSelected, 'normal');
+      card.replaceWith(freshCard);
+      // Re-establish selection state
+      if (wasSelected) {
+        currentSelectedExpenseId = expense.id;
+      }
+    } else {
+      // Fallback: just restore content
+      cardBody.innerHTML = originalContent;
+      if (hadUniform) card.classList.add('card-uniform-height');
+    }
   });
 }
 
@@ -1047,6 +2450,8 @@ function buildAddExpenseShadowCard(tripId) {
   const renderShadow = () => {
     editing = false;
     card.classList.remove('editing');
+    // Reset background color
+    card.style.backgroundColor = '';
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     const currentTime = now.toTimeString().slice(0, 5);
@@ -1086,6 +2491,8 @@ function buildAddExpenseShadowCard(tripId) {
     const today = now.toISOString().slice(0, 10);
     const currentTime = now.toTimeString().slice(0, 5);
     card.classList.add('editing');
+    // Add light green background for edit mode
+    card.style.backgroundColor = '#E4EEE9';
     card.innerHTML = `
       <div class="card-body">
         <div class="d-flex flex-column gap-2">
@@ -1238,7 +2645,13 @@ function attachLongPressToEdit(card, expense) {
     moved = false;
     clearTimeout(pressTimer);
     pressTimer = setTimeout(async () => {
-      await selectExpense(expense.id);
+      // Set selection and start editing without full re-render
+      currentSelectedExpenseId = expense.id;
+      const container = card.closest('#expense-list-container');
+      if (container) {
+        container.querySelectorAll('.expense-card').forEach(c => c.classList.remove('expense-card--selected'));
+      }
+      card.classList.add('expense-card--selected');
       startEditExpense(card, expense);
     }, 500);
   };
@@ -1896,8 +3309,14 @@ async function renderExpenseList(tripId, selectedExpenseId = null) {
       const inExpenseCard = inContainer && ev.target.closest('[data-expense-id]');
       const inEditor = inContainer && ev.target.closest('#add-expense-card');
       if (currentSelectedExpenseId && (!inContainer || (!inExpenseCard && !inEditor))) {
-        currentSelectedExpenseId = null;
-        renderExpenseList(tripId, null);
+        // Don't deselect if the card is in edit mode or if clicking on form elements
+        const selectedCard = container.querySelector('.expense-card.expense-card--selected');
+        const isInEditMode = selectedCard && selectedCard.querySelector('#save-expense-edit');
+        const isFormClick = ev.target && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(ev.target.tagName);
+        if (selectedCard && !isInEditMode && !isFormClick) {
+          selectedCard.classList.remove('expense-card--selected');
+          currentSelectedExpenseId = null;
+        }
       }
     };
     document.addEventListener('click', expenseDeselectHandler, true);
@@ -1911,30 +3330,63 @@ async function renderExpenseList(tripId, selectedExpenseId = null) {
     const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return ad - bd;
   };
-  expenses.filter(e=>!e.archived).sort(byPos).forEach(exp => container.appendChild(buildExpenseCard(exp, exp.id === currentSelectedExpenseId)));
+  expenses.filter(e=>!e.archived).sort(byPos).forEach(exp => container.appendChild(buildExpenseCard(exp, exp.id === currentSelectedExpenseId, 'normal')));
 
   // Archive drop zone
   const archiveSection = document.createElement('section');
   archiveSection.className = 'mt-3';
   archiveSection.innerHTML = `
     <h6 class="mb-2 text-placeholder" id="archive-open" style="cursor:pointer;">Archived</h6>
-    <div id="archive-drop" class="drop-zone drop-zone--archive">Drop here to archive</div>
+    <div id="archive-drop" class="drop-zone drop-zone--archive">Archive <em>Expense</em></div>
   `;
   container.appendChild(archiveSection);
   archiveSection.querySelector('#archive-open').addEventListener('click', ()=> renderArchivedExpenses(tripId));
   const drop = archiveSection.querySelector('#archive-drop');
-  drop.addEventListener('dragover', (e)=>{ e.preventDefault(); drop.style.background='#f8f9fa'; });
-  drop.addEventListener('dragleave', ()=>{ drop.style.background=''; });
-  drop.addEventListener('drop', async (e)=>{
-    e.preventDefault(); drop.style.background='';
-    const id = e.dataTransfer.getData('text/expense-id');
-    if (!id) return;
-    const exp = (await getExpensesByTripId(tripId)).find(x=>x.id===id);
-    if (!exp) return;
-    exp.archived = true;
-    await saveExpense(exp);
-    await renderExpenseList(tripId, null);
+  drop.addEventListener('dragover', (e)=>{ 
+    e.preventDefault(); 
+    drop.style.backgroundColor = 'var(--expense-selection-bg-color)';
+    drop.style.color = 'var(--muted-grey)';
   });
+  drop.addEventListener('dragleave', ()=>{ 
+    drop.style.backgroundColor = '';
+    drop.style.color = '';
+  });
+  // Accept drops via Sortable group for reliable archiving during drag
+  try {
+    new Sortable(drop, {
+      group: { name: 'expenses', pull: true, put: true },
+      sort: false,
+      onAdd: async (evt) => {
+        // Reset drop zone styling
+        drop.style.backgroundColor = '';
+        drop.style.color = '';
+        
+        try {
+          const el = evt.item;
+          const id = el?.dataset?.expenseId;
+          console.log('Archiving expense:', id);
+          if (!id) return;
+          const all = await getExpensesByTripId(tripId);
+          const exp = all.find(e=>e.id===id);
+          if (!exp) {
+            console.warn('Expense not found for archiving:', id);
+            return;
+          }
+          exp.archived = true;
+          await saveExpense(exp);
+          console.log('Expense archived successfully:', id);
+          // Remove the dragged element from drop zone to prevent malformed display
+          if (el && el.parentNode) {
+            el.parentNode.removeChild(el);
+          }
+        } finally {
+          await renderExpenseList(tripId, null);
+        }
+      }
+    });
+  } catch (e) { console.warn('Sortable init failed for archive drop (expenses)', e); }
+  // Also allow click on dashed box to open Archived view
+  drop.addEventListener('click', ()=> renderArchivedExpenses(tripId));
 
   // Install outside-click deselect handler
   if (expenseDeselectHandler) document.removeEventListener('click', expenseDeselectHandler, true);
@@ -1943,8 +3395,14 @@ async function renderExpenseList(tripId, selectedExpenseId = null) {
     const inExpenseCard = inContainer && ev.target.closest('[data-expense-id]');
     const inEditor = inContainer && ev.target.closest('#add-expense-card');
     if (currentSelectedExpenseId && (!inContainer || (!inExpenseCard && !inEditor))) {
-      currentSelectedExpenseId = null;
-      renderExpenseList(tripId, null);
+      // Don't deselect if the card is in edit mode or if clicking on form elements
+      const selectedCard = container.querySelector('.expense-card.expense-card--selected');
+      const isInEditMode = selectedCard && selectedCard.querySelector('#save-expense-edit');
+      const isFormClick = ev.target && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(ev.target.tagName);
+      if (selectedCard && !isInEditMode && !isFormClick) {
+        selectedCard.classList.remove('expense-card--selected');
+        currentSelectedExpenseId = null;
+      }
     }
   };
   document.addEventListener('click', expenseDeselectHandler, true);
@@ -1952,13 +3410,22 @@ async function renderExpenseList(tripId, selectedExpenseId = null) {
   // Enable SortableJS for expenses (supports iOS long-press drag)
   try {
     new Sortable(container, {
+      group: 'expenses',
       animation: 150,
       handle: undefined,
-      draggable: '.expense-card',
+      draggable: '.expense-card.expense-card--selected', // Only allow selected cards
       filter: '#add-expense-card, section',
       delay: 150,
       delayOnTouchOnly: true,
-      onEnd: async () => { await syncExpenseOrderFromDOM(tripId); }
+      onStart: (evt) => { 
+        window.__sortingExpenses = true; 
+        console.log('Expense drag started', evt.item?.dataset?.expenseId, evt.item?.className);
+        // Set flag to prevent swipe actions after drag
+        if (evt.item) {
+          evt.item.__didSwipeAction = true;
+        }
+      },
+      onEnd: async () => { try { await syncExpenseOrderFromDOM(tripId); } finally { window.__sortingExpenses = false; } }
     });
   } catch (e) { console.warn('Sortable init failed for expenses', e); }
 }
@@ -2050,11 +3517,27 @@ async function renderArchivedExpenses(tripId) {
     container.innerHTML = '<p class="text-center text-placeholder">No archived expenses</p>';
   } else {
     archived.forEach(exp => {
-      const card = buildExpenseCard(exp, false);
-      card.draggable = true;
-      card.addEventListener('dragstart', (e)=>{ e.dataTransfer?.setData('text/archived-expense-id', exp.id); e.dataTransfer.effectAllowed='move'; });
+      const card = buildExpenseCard(exp, false, 'archived');
       container.appendChild(card);
     });
+    
+    // Enable SortableJS for archived expenses (supports desktop drag)
+    try {
+      new Sortable(container, {
+        group: 'archived-expenses',
+        animation: 150,
+        draggable: '.expense-card.expense-card--selected', // Only allow selected cards
+        delay: 150,
+        delayOnTouchOnly: true,
+        onStart: (evt) => { 
+          console.log('Archived expense drag started', evt.item?.dataset?.expenseId);
+          // Set flag to prevent swipe actions after drag
+          if (evt.item) {
+            evt.item.__didSwipeAction = true;
+          }
+        }
+      });
+    } catch (e) { console.warn('Sortable init failed for archived expenses', e); }
     const dzWrap = document.createElement('div'); dzWrap.className='mt-3';
     dzWrap.innerHTML = `
       <div class="drop-zone drop-zone--unarchive" id="unarchive-drop">Drop here to unarchive</div>
@@ -2063,22 +3546,42 @@ async function renderArchivedExpenses(tripId) {
     container.parentElement.appendChild(dzWrap);
     const unDz = document.getElementById('unarchive-drop');
     const delDz = document.getElementById('delete-drop');
-    [unDz, delDz].forEach(dz => {
-      dz.addEventListener('dragover', (e)=>{ e.preventDefault(); dz.style.background='#f8f9fa'; });
-      dz.addEventListener('dragleave', ()=>{ dz.style.background=''; });
-    });
-    unDz.addEventListener('drop', async (e)=>{
-      e.preventDefault(); unDz.style.background='';
-      const id = e.dataTransfer.getData('text/archived-expense-id'); if (!id) return;
-      const all = await getExpensesByTripId(tripId); const exp = all.find(x=>x.id===id); if (!exp) return;
-      exp.archived = false; await saveExpense(exp); await renderArchivedExpenses(tripId);
-    });
-    delDz.addEventListener('drop', async (e)=>{
-      e.preventDefault(); delDz.style.background='';
-      const id = e.dataTransfer.getData('text/archived-expense-id'); if (!id) return;
-      if (!confirm('Delete this expense and its receipts?')) return;
-      await deleteReceiptsByExpenseId(id); await deleteExpenseById(id); await renderArchivedExpenses(tripId);
-    });
+    
+    // Use SortableJS for unarchive drop zone
+    try {
+      new Sortable(unDz, {
+        group: { name: 'archived-expenses', pull: true, put: true },
+        sort: false,
+        onAdd: async (evt) => {
+          const el = evt.item;
+          const id = el?.dataset?.expenseId;
+          if (!id) return;
+          const all = await getExpensesByTripId(tripId);
+          const exp = all.find(x=>x.id===id);
+          if (!exp) return;
+          exp.archived = false; 
+          await saveExpense(exp); 
+          await renderArchivedExpenses(tripId);
+        }
+      });
+    } catch (e) { console.warn('Sortable init failed for unarchive drop', e); }
+    
+    // Use SortableJS for delete drop zone  
+    try {
+      new Sortable(delDz, {
+        group: { name: 'archived-expenses', pull: true, put: true },
+        sort: false,
+        onAdd: async (evt) => {
+          const el = evt.item;
+          const id = el?.dataset?.expenseId;
+          if (!id) return;
+          if (!confirm('Delete this expense and its receipts?')) return;
+          await deleteReceiptsByExpenseId(id); 
+          await deleteExpenseById(id); 
+          await renderArchivedExpenses(tripId);
+        }
+      });
+    } catch (e) { console.warn('Sortable init failed for delete drop', e); }
   }
   document.getElementById('back-to-trip').addEventListener('click', ()=>renderTripDetail(tripId));
   document.getElementById('settings-btn').addEventListener('click', renderSettingsPage);

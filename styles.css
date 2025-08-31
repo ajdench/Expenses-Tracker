@@ -19,16 +19,31 @@
   --global-horizontal-padding: 1rem; /* 16px */
   --light-grey: #d1d5db; /* Dullergrey */
   --muted-grey: #6c757d;
-  --uniform-card-height: 74px;
+  --uniform-card-height: 78px;
   --uniform-control-height: 40px;
   --header-title-size: 24px;
   --theme-color-blue: #1663bb;
   --theme-color-green: #198754;
   --theme-color-blue-dusty: #89a5c9;
   --theme-color-green-dusty: #7aa992;
+  --theme-color-purple: #a78bfa;
+  --theme-color-red: #c87a7a;
+  --theme-color-grey: #b8c1c9;
+  --selection-bg-color: #E4EEE9;
+  --trip-selection-bg-color: #E4E9EE;
+  
+  /* UI Constants */
+  --border-radius-standard: 6px;
+  --debug-bg-color: #007bff;
+  --debug-stop-bg-color: #dc3545;
+  --z-index-debug: 9999;
+  --z-index-icon: 0;
+  --z-index-content: 2;
+  --double-click-delay: 300;
+  
   /* Fine-tune vertical nudges inside expense cards */
   --expense-vendor-nudge-y: -2.5px;
-  --expense-date-nudge-y: -2.5px;
+  --expense-date-nudge-y: 0px;
 }
 
 .btn-custom-blue {
@@ -55,12 +70,35 @@
   background-color: var(--theme-color-green) !important;
 }
 
-.expense-card--selected { color: white !important; }
-.expense-card--selected .card-body { background-color: rgba(25, 135, 84, 0.2); }
+.expense-card--selected { color: inherit !important; }
+/* Solid subtle green fill to replace previous translucency */
+/* Ensure selected fill wins over base white background */
+.expense-card.expense-card--selected .card-body { background-color: var(--selection-bg-color) !important; }
+/* Change border colour on select to #7aa992 */
+.expense-card.expense-card--selected { border-color: #7aa992 !important; }
 
 .ghost-card {
-  opacity: 0.5;
-  background: #ccc;
+  opacity: 0.6 !important;
+  background: #f8f9fa !important;
+  border: 2px dashed #6c757d !important;
+  pointer-events: none !important;
+}
+
+.archive-placeholder {
+  width: 95% !important;
+  height: auto !important;
+  min-height: 78px !important;
+  margin: 0.25rem auto !important;
+  transform: scale(0.95);
+  transform-origin: center center;
+  opacity: 0.9 !important;
+  background: #ffffff !important;
+  border: 2px solid #007bff !important;
+  border-radius: 0.375rem !important;
+  pointer-events: none !important;
+  display: none !important;
+  position: relative !important;
+  z-index: 10 !important;
 }
 
 /* Shadow (placeholder) cards share styling */
@@ -77,9 +115,11 @@
 }
 .add-trip-card:hover,
 .add-expense-card:hover { box-shadow: none !important; }
-.add-trip-card.editing,
+.add-trip-card.editing {
+  background-color: var(--trip-selection-bg-color);
+}
 .add-expense-card.editing {
-  background-color: var(--shadow-bg);
+  background-color: var(--selection-bg-color);
   border-style: solid;
   border-color: var(--shadow-border-color);
 }
@@ -164,15 +204,9 @@
 }
 /* Keep trip card grey border even when selected (blue) and hovered */
 .trip-card.btn-custom-blue:hover,
-.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
-.trip-card.btn-custom-blue { background-color: #ffffff !important; border-color: #89a5c9 !important; color: inherit !important; }
-/* Selected trip cards keep dull blue background and grey border */
-.trip-card.btn-custom-blue { background-color: #ffffff !important; border-color: #89a5c9 !important; color: inherit !important; }
-.trip-card.btn-custom-blue:hover,
-.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
-/* Do not darken selected trip cards on hover; keep dull blue */
-.trip-card.btn-custom-blue:hover,
-.trip-card.btn-custom-blue:focus { background-color: #ffffff !important; border-color: #89a5c9 !important; }
+.trip-card.btn-custom-blue:focus { background-color: var(--trip-selection-bg-color) !important; border-color: #89a5c9 !important; }
+.trip-card.btn-custom-blue { background-color: var(--trip-selection-bg-color) !important; border-color: #89a5c9 !important; color: inherit !important; }
+/* Removed duplicate CSS rules - using the consolidated ones above */
 /* Enforce exact height on trip cards (border-to-border) */
 .trip-card.card-uniform-height { height: var(--uniform-card-height) !important; box-sizing: border-box; }
 
@@ -180,7 +214,10 @@
 .add-trip-card.editing .form-control,
 .add-trip-card.editing .form-select,
 #add-expense-card.editing .form-control,
-#add-expense-card.editing .form-select {
+#add-expense-card.editing .form-select,
+.expense-card .form-control,
+.expense-card .form-select,
+.expense-card textarea {
   border-width: 2px;
   border-color: var(--light-grey);
 }
@@ -199,9 +236,12 @@
   resize: none;
 }
 
-/* Section headers to grey */
-#trip-list-container h5 {
+/* Section headers to grey and consistent size */
+#trip-list-container h6,
+#expense-list-container h6 {
   color: var(--light-grey);
+  font-size: 1rem; /* Smaller section title size (h6 equivalent) */
+  font-weight: 500;
 }
 
 .text-placeholder {
@@ -265,6 +305,34 @@
   line-height: 1;
 }
 
+/* Trip card title size */
+.trip-card .card-title { font-size: 1rem; line-height: 1; }
+
+/* Trip card body as grid to keep title centered regardless of right stack height */
+.trip-card > .card-body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  height: 100%;
+}
+
+/* Trip card amounts: stack and center vertically */
+.trip-card .trip-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end; /* right align text */
+  justify-content: center; /* center stacked block */
+  align-self: center; /* center the block within grid cell */
+  gap: 5px; /* default spacing between lines */
+}
+.trip-card .trip-amounts p { margin: 0; line-height: 1.1; }
+
+/* Dynamic compaction for multiple currencies */
+.trip-card .trip-amounts--n1 p { font-size: 1rem; }
+.trip-card .trip-amounts--n2 p { font-size: 1rem; }
+.trip-card .trip-amounts--n3 p { font-size: 0.9rem; }
+.trip-card .trip-amounts--n3 { gap: 3px; }
+
 /* Respect iOS safe areas and neutral background */
 html, body { background-color: #f8f9fa; }
 body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
@@ -278,6 +346,27 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 .card { box-shadow: none !important; }
 .card, .trip-card, .expense-card, .add-trip-card { border-radius: 0.375rem !important; }
 .trip-card { overflow: hidden; }
+.trip-card { position: relative; z-index: 1; }
+.trip-card .card-body { background-color: #ffffff; border-radius: 0.375rem; }
+.trip-card.btn-custom-blue .card-body { background-color: var(--trip-selection-bg-color) !important; }
+
+/* Unselected trip cards (except in Active section) have grey text */
+.trip-card:not(.btn-custom-blue) .card-title,
+.trip-card:not(.btn-custom-blue) .trip-amounts p {
+  color: var(--light-grey) !important;
+}
+
+/* Active section: selected cards get the dark grey title color like other sections */
+#active-trips-container .trip-card.btn-custom-blue .card-title {
+  color: var(--muted-grey) !important;
+}
+/* Active section: unselected cards also get dark grey title text */
+#active-trips-container .trip-card:not(.btn-custom-blue) .card-title {
+  color: var(--muted-grey) !important;
+}
+#active-trips-container .trip-card:not(.btn-custom-blue) .trip-amounts p {
+  color: inherit !important;
+}
 .add-trip-card:hover { box-shadow: none !important; }
 
 /* Expense card icon size */
@@ -336,8 +425,12 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
   color: var(--light-grey);
 }
 .drop-zone--archive { border-color: var(--light-grey); color: var(--light-grey); }
-.drop-zone--unarchive { border-color: var(--theme-color-green-dusty); color: var(--theme-color-green-dusty); }
-.drop-zone--delete { border-color: #dc3545; color: #dc3545; }
+.drop-zone--unarchive { border-color: #6fa38f; color: #6fa38f; }
+.drop-zone--delete { border-color: #c87a7a; color: #c87a7a; }
+
+/* Trip Archive specific colors - unarchive should be dull blue */
+#trip-unarchive-drop { border-color: #89a5c9; color: #89a5c9; }
+#trip-delete-drop { border-color: #c87a7a; color: #c87a7a; }
 
 /* Edge editor overlay */
 .edge-editor-wrap {
@@ -386,8 +479,8 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 
 /* Expense card layout tweaks */
 .expense-grid { display: flex; align-items: center; height: 100%; }
-.expense-grid > .col-left { flex: 0 0 40%; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; height: 100%; }
-.expense-grid > .col-datetime { flex: 0 0 20%; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; height: 100%; }
+.expense-grid > .col-left { flex: 0 0 40%; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.expense-grid > .col-datetime { flex: 0 0 20%; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
 .expense-grid > .col-amount { flex: 0 0 30%; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
 .expense-grid > .col-amount { padding-right: 0; }
 .expense-grid .col-amount p { margin: 0; width: 100%; text-align: right; }
@@ -403,7 +496,11 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 .expense-description { margin: 0; font-size: 1rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transform: translateY(var(--expense-vendor-nudge-y)); }
 .expense-date { transform: translateY(var(--expense-date-nudge-y)); white-space: nowrap; }
 .expense-time { white-space: nowrap; }
-.expense-category-pill { display: inline-block; margin-top: 2px; }
+.expense-category-pill { display: inline-block; margin-top: 2px; margin-bottom: 0; }
+
+/* Ensure expense card content remains opaque while swiping */
+.expense-card { position: relative; z-index: 1; overflow: hidden; }
+.expense-card .card-body { background-color: #ffffff; border-radius: 0.375rem; }
 .category-grid .expense-category-pill { justify-self: start; display: inline-block; }
 
 .container {
