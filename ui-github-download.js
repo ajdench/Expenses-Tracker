@@ -19,7 +19,7 @@ const UI_CONSTANTS = {
   ICON_Z_INDEX: 0,
   CONTENT_Z_INDEX: 2,
   BORDER_RADIUS: '6px',
-  SHOW_DEBUG_BUTTON: true // Set to true to show debug controls
+  SHOW_DEBUG_BUTTON: false // Set to true to show debug controls
 };
 
 async function renderShell() {
@@ -695,11 +695,7 @@ function buildTripCard(trip, isSelected) {
       const onTouchStart = (e)=>{ 
         console.log(`🔵 TRIP TOUCH START: sorting=${window.__sortingTrips}, hasBlueClass=${card.classList.contains('btn-custom-blue')}, touches=${e.touches?.length}`);
         if (window.__sortingTrips) return; 
-        if (!card.classList.contains('btn-custom-blue')) return;
-        // Block swipe actions on ghost elements
-        if (card.classList.contains('ghost-card') || card.classList.contains('sortable-ghost')) {
-          return;
-        }
+        if (!card.classList.contains('btn-custom-blue')) return; 
         const t=e.touches?.[0]; 
         if(!t) return; 
         startX=curX=t.clientX; 
@@ -729,16 +725,15 @@ function buildTripCard(trip, isSelected) {
         // Change card background, border, and show icons during swipe
         if (Math.abs(dx) > 2) {
           card.style.background = gradientBg;
-          // Set border color and width based on swipe direction
+          // Set border color based on swipe direction
           const borderColor = dx > 0 ? leftColor : rightColor;
           card.style.setProperty('border-color', borderColor, 'important');
-          card.style.setProperty('border-width', '2px', 'important');
           console.log('SWIPE BORDER:', dx, 'borderColor=', borderColor, 'element=', card);
           iconsLayer.style.opacity = '1';
         } else {
           card.style.background = originalBg;
           card.style.removeProperty('border-color');
-          card.style.removeProperty('border-width');
+        card.style.borderWidth = '';
           iconsLayer.style.opacity = '0';
         }
         e.preventDefault(); };
@@ -761,8 +756,6 @@ function buildTripCard(trip, isSelected) {
         } catch (e) {}
         content.style.transform='translateX(0)'; 
         card.style.background = originalBg;
-        card.style.removeProperty('border-color');
-        card.style.removeProperty('border-width');
         iconsLayer.style.opacity = '0';
       };
       card.addEventListener('touchstart', onTouchStart, { passive:true });
@@ -793,16 +786,15 @@ function buildTripCard(trip, isSelected) {
         // Change card background, border, and show icons during swipe
         if (Math.abs(dx) > 2) {
           card.style.background = gradientBg;
-          // Set border color and width based on swipe direction
+          // Set border color based on swipe direction
           const borderColor = dx > 0 ? leftColor : rightColor;
           card.style.setProperty('border-color', borderColor, 'important');
-          card.style.setProperty('border-width', '2px', 'important');
           console.log('SWIPE BORDER:', dx, 'borderColor=', borderColor, 'element=', card);
           iconsLayer.style.opacity = '1';
         } else {
           card.style.background = originalBg;
           card.style.removeProperty('border-color');
-          card.style.removeProperty('border-width');
+        card.style.borderWidth = '';
           iconsLayer.style.opacity = '0';
         }
         e.preventDefault();
@@ -842,8 +834,6 @@ function buildTripCard(trip, isSelected) {
         // Reset visual state
         content.style.transform = 'translateX(0)';
         card.style.background = originalBg;
-        card.style.removeProperty('border-color');
-        card.style.removeProperty('border-width');
         iconsLayer.style.opacity = '0';
       };
       
@@ -1160,21 +1150,21 @@ async function renderTripLists(selectedTripId = null) {
 
   // Add placeholder text for empty active section
   if (active.children.length === 0) {
-    active.innerHTML = '<div class="card mb-3 placeholder-card">No <em>Active</em> Trips</div>';
+    active.innerHTML = '<p class="text-center text-placeholder">No <em>Active</em> Trips</p>';
   }
 
   const submittedTrips = trips.filter(t => t.status === 'submitted').sort(byPos);
   if (submittedTrips.length > 0) {
     submittedTrips.forEach(trip => submitted.appendChild(buildTripCard(trip, trip.id === selectedTripId)));
   } else {
-    submitted.innerHTML = '<div class="card mb-3 placeholder-card">No <em>Submitted</em> Trips</div>';
+    submitted.innerHTML = '<p class="text-center text-placeholder">No <em>Submitted</em> Trips</p>';
   }
 
   const reimbursedTrips = trips.filter(t => t.status === 'reimbursed').sort(byPos);
   if (reimbursedTrips.length > 0) {
     reimbursedTrips.forEach(trip => reimbursed.appendChild(buildTripCard(trip, trip.id === selectedTripId)));
   } else {
-    reimbursed.innerHTML = '<div class="card mb-3 placeholder-card">No <em>Reimbursed</em> Trips</div>';
+    reimbursed.innerHTML = '<p class="text-center text-placeholder">No <em>Reimbursed</em> Trips</p>';
   }
 
   [newTrips, active, submitted, reimbursed].forEach(container => {
@@ -1198,21 +1188,6 @@ async function renderTripLists(selectedTripId = null) {
           const to = evt.to;
           const ghost = document.querySelector('.ghost-card');
           const draggedCard = evt.item;
-          
-          // Handle ghost snapping to placeholder cards in empty sections
-          if (ghost && to && (to.id === 'active-trips-container' || to.id === 'submitted-trips-container' || to.id === 'reimbursed-trips-container')) {
-            const placeholderCard = to.querySelector('.placeholder-card');
-            if (placeholderCard) {
-              const placeholderRect = placeholderCard.getBoundingClientRect();
-              if (placeholderRect.width > 0 && placeholderRect.height > 0) {
-                ghost.style.position = 'fixed';
-                ghost.style.top = placeholderRect.top + 'px';
-                ghost.style.left = placeholderRect.left + 'px';
-                ghost.style.width = placeholderRect.width + 'px';
-                ghost.style.height = placeholderRect.height + 'px';
-              }
-            }
-          }
           
           if (ghost && to && to.id === 'trip-archive-drop') {
             // Hide ghost when over archive area
@@ -1412,7 +1387,7 @@ async function renderArchivedTrips() {
   document.getElementById('back-to-trips')?.addEventListener('click', ()=>renderTrips());
   document.getElementById('settings-btn')?.addEventListener('click', renderSettingsPage);
   const list = document.getElementById('archived-list-container');
-  if (!archived.length) { list.innerHTML = '<div class="card mb-3 placeholder-card">No archived trips</div>'; return; }
+  if (!archived.length) { list.innerHTML = '<p class="text-center text-placeholder">No archived trips</p>'; return; }
   
   let selectedTripId = null; // Track selected archived trip
   
@@ -1509,21 +1484,6 @@ async function renderArchivedTrips() {
       delayOnTouchOnly: true,
       onStart: () => {
         console.log('Archived trip drag started');
-        // Snap ghost to placeholder position immediately
-        setTimeout(() => {
-          const ghost = document.querySelector('.ghost-card, .sortable-ghost');
-          const placeholder = document.querySelector('#archived-trips-list .placeholder-card');
-          if (ghost && placeholder) {
-            const placeholderRect = placeholder.getBoundingClientRect();
-            if (placeholderRect.width > 0 && placeholderRect.height > 0) {
-              ghost.style.position = 'fixed';
-              ghost.style.top = placeholderRect.top + 'px';
-              ghost.style.left = placeholderRect.left + 'px';
-              ghost.style.width = placeholderRect.width + 'px';
-              ghost.style.height = placeholderRect.height + 'px';
-            }
-          }
-        }, 0);
       }
     });
   } catch (e) {
@@ -1531,7 +1491,7 @@ async function renderArchivedTrips() {
   }
 
   // Add unarchive drop zones for desktop compatibility
-  if (true) {
+  if (archived.length > 0) {
     const dropZoneWrapper = document.createElement('div');
     dropZoneWrapper.className = 'mt-3';
     
@@ -1669,10 +1629,6 @@ async function addArchivedTripSwipe(card, trip, onDeselect) {
     let startX = 0, curX = 0, swiping = false;
     
     const onTouchStart = (e) => {
-      // Block swipe actions on ghost elements
-      if (card.classList.contains('ghost-card') || card.classList.contains('sortable-ghost')) {
-        return;
-      }
       const t = e.touches?.[0];
       if (!t) return;
       startX = curX = t.clientX;
@@ -1697,15 +1653,14 @@ async function addArchivedTripSwipe(card, trip, onDeselect) {
       // Change card background, border, and show icons during swipe
       if (Math.abs(dx) > 2) {
         card.style.background = gradientBg;
-        // Set border color and width based on swipe direction (purple=left, red=right)
+        // Set border color based on swipe direction (purple=left, red=right)
         const borderColor = dx > 0 ? COLORS.PURPLE : COLORS.RED;
         card.style.setProperty('border-color', borderColor, 'important');
-        card.style.setProperty('border-width', '2px', 'important');
         iconsLayer.style.opacity = '1';
       } else {
         card.style.background = originalBg;
         card.style.removeProperty('border-color');
-        card.style.removeProperty('border-width');
+        card.style.borderWidth = '';
         iconsLayer.style.opacity = '0';
       }
       e.preventDefault();
@@ -1751,8 +1706,6 @@ async function addArchivedTripSwipe(card, trip, onDeselect) {
       if (!changed) {
         content.style.transform = 'translateX(0)';
         card.style.background = originalBg;
-        card.style.removeProperty('border-color');
-        card.style.removeProperty('border-width');
         iconsLayer.style.opacity = '0';
       }
     };
@@ -1781,15 +1734,14 @@ async function addArchivedTripSwipe(card, trip, onDeselect) {
       // Change card background, border, and show icons during swipe
       if (Math.abs(dx) > 2) {
         card.style.background = gradientBg;
-        // Set border color and width based on swipe direction (purple=left, red=right)
+        // Set border color based on swipe direction (purple=left, red=right)
         const borderColor = dx > 0 ? COLORS.PURPLE : COLORS.RED;
         card.style.setProperty('border-color', borderColor, 'important');
-        card.style.setProperty('border-width', '2px', 'important');
         iconsLayer.style.opacity = '1';
       } else {
         card.style.background = originalBg;
         card.style.removeProperty('border-color');
-        card.style.removeProperty('border-width');
+        card.style.borderWidth = '';
         iconsLayer.style.opacity = '0';
       }
     };
@@ -1832,8 +1784,6 @@ async function addArchivedTripSwipe(card, trip, onDeselect) {
       if (!changed) {
         content.style.transform = 'translateX(0)';
         card.style.background = originalBg;
-        card.style.removeProperty('border-color');
-        card.style.removeProperty('border-width');
         iconsLayer.style.opacity = '0';
       }
     };
@@ -2130,10 +2080,6 @@ function buildExpenseCard(expense, isSelected, context = 'normal') {
     if (card.dataset.dragging === '1') return;
     // Gate to selected card only
     if (!card.classList.contains('expense-card--selected')) return;
-    // Block swipe actions on ghost elements
-    if (card.classList.contains('ghost-card') || card.classList.contains('sortable-ghost')) {
-      return;
-    }
     // Don't allow swipe in edit mode
     if (card.querySelector('#save-expense-edit')) return;
     const t=e.touches?.[0]; if(!t) return; startX = curX = t.clientX; swiping=true; moved=false; content.style.transition='none'; };
@@ -2182,12 +2128,7 @@ function buildExpenseCard(expense, isSelected, context = 'normal') {
           }
         }
       }
-    } finally { 
-      content.style.transform='translateX(0)'; 
-      card.style.background = originalBg;
-      card.style.removeProperty('border-color');
-      card.style.removeProperty('border-width');
-    }
+    } finally { content.style.transform='translateX(0)'; card.style.background = originalBg; }
   };
   card.addEventListener('touchstart', onTouchStart, { passive:true });
   card.addEventListener('touchmove', onTouchMove, { passive:false });
@@ -2228,12 +2169,10 @@ function buildExpenseCard(expense, isSelected, context = 'normal') {
         borderColor = dx > 0 ? COLORS.GREEN : COLORS.GREY;
       }
       card.style.setProperty('border-color', borderColor, 'important');
-      card.style.setProperty('border-width', '2px', 'important');
       iconsLayer.style.opacity = '1';
     } else {
       card.style.background = originalBg;
       card.style.removeProperty('border-color');
-      card.style.removeProperty('border-width');
       iconsLayer.style.opacity = '0';
     }
     e.preventDefault();
@@ -2287,8 +2226,7 @@ function buildExpenseCard(expense, isSelected, context = 'normal') {
     } finally { 
       content.style.transform = 'translateX(0)'; 
       card.style.background = originalBg;
-      card.style.removeProperty('border-color');
-      card.style.removeProperty('border-width');
+   
     }
   };
   
@@ -2304,8 +2242,7 @@ function buildExpenseCard(expense, isSelected, context = 'normal') {
     }
     content.style.transform='translateX(0)'; 
     card.style.background = originalBg;
-    card.style.removeProperty('border-color');
-    card.style.removeProperty('border-width');
+ 
   });
 
   // Mobile double-tap to edit (non-archived context)
@@ -3578,7 +3515,7 @@ async function renderArchivedExpenses(tripId) {
   const all = await getExpensesByTripId(tripId);
   const archived = all.filter(e=>e.archived);
   if (!archived.length) {
-    container.innerHTML = '<div class="card mb-3 placeholder-card">No archived expenses</div>';
+    container.innerHTML = '<p class="text-center text-placeholder">No archived expenses</p>';
   } else {
     archived.forEach(exp => {
       const card = buildExpenseCard(exp, false, 'archived');
@@ -3599,21 +3536,6 @@ async function renderArchivedExpenses(tripId) {
           if (evt.item) {
             evt.item.__didSwipeAction = true;
           }
-          // Snap ghost to placeholder position immediately
-          setTimeout(() => {
-            const ghost = document.querySelector('.ghost-card, .sortable-ghost');
-            const placeholder = document.querySelector('#archived-expenses .placeholder-card');
-            if (ghost && placeholder) {
-              const placeholderRect = placeholder.getBoundingClientRect();
-              if (placeholderRect.width > 0 && placeholderRect.height > 0) {
-                ghost.style.position = 'fixed';
-                ghost.style.top = placeholderRect.top + 'px';
-                ghost.style.left = placeholderRect.left + 'px';
-                ghost.style.width = placeholderRect.width + 'px';
-                ghost.style.height = placeholderRect.height + 'px';
-              }
-            }
-          }, 0);
         }
       });
     } catch (e) { console.warn('Sortable init failed for archived expenses', e); }

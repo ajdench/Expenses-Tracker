@@ -100,16 +100,20 @@ key_features:
   - Drag/drop reordering with SortableJS
   - Double-click selection pattern for cards
   - Global color/UI constants system (COLORS, UI_CONSTANTS)
-  - Border color feedback on swipe initiation
+  - Border color feedback on swipe initiation (2px borders)
+  - Placeholder cards for empty sections
+  - Ghost element snap-to-placeholder positioning
+  - Comprehensive ghost swipe prevention
   
-recent_improvements:
-  - Fixed border color visibility during swipes (CSS !important conflicts resolved)
-  - Adjusted purple swipe tone to match red archive tone
-  - Global cursor standardization (default pointer across all browsers)
-  - Archive area UX improvements (clickable zones, text spacing)
-  - Debug controls hidden behind global toggle
+recent_major_recovery_sept_2025:
+  - COMPLETE RECOVERY: All post-GitHub developments restored from corruption
+  - 4 Core User Issues: Placeholder cards, ghost snapping, drop zones, swipe prevention
+  - Border System: 2px width, proper color reset, consistent across all card types
+  - Archive Functionality: Ghost positioning, always-available drop zones
+  - Enhanced Debug Infrastructure: Color-coded logging, layer tracking
+  - Performance Optimizations: SWIPE_DISTANCE calibration, efficient event handling
   
-status: Polished, all major UX issues resolved
+status: FULLY RECOVERED & ENHANCED - All functionality working beyond baseline
 ```
 
 ## 🎯 Operating Principles

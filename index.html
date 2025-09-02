@@ -63,9 +63,24 @@
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script type="module">
+    import { scanDocument } from 'https://unpkg.com/scanic/dist/scanic.js';
+    window.scanDocument = scanDocument;
+  </script>
   <script src="db.js?v=20250828-15"></script>
+  <script src="scanner.js"></script>
   <script src="ui.js?v=20250829-EXPENSE-MOUSE-SWIPES"></script>
   <script src="app.js?v=20250829-PRESERVE-PARAMS"></script>
   <script src="register-sw.js?v=20250828-15"></script>
+  <div id="scanner-view" class="hidden">
+    <div id="scanic-container"></div>
+    <div id="thumbnail-bar">
+        <!-- Thumbnails will be dynamically added here -->
+    </div>
+    <div class="scanner-controls">
+        <button id="add-another-receipt-btn" class="btn btn-secondary">Add Another</button>
+        <button id="done-scanning-btn" class="btn btn-primary">Done</button>
+    </div>
+  </div>
 </body>
 </html>

@@ -36,6 +36,7 @@
   --theme-color-grey: #b8c1c9;
   --selection-bg-color: #E4EEE9;
   --trip-selection-bg-color: #E4E9EE;
+  --red-selection-bg-color: #F0E4E4;
   
   /* UI Constants */
   --border-radius-standard: 6px;
@@ -251,6 +252,19 @@
 
 .text-placeholder {
   color: var(--light-grey);
+}
+
+/* Dashed placeholder cards for empty states */
+.placeholder-card {
+  border: 2px dashed #e9ecef !important;
+  background-color: transparent !important;
+  color: #e9ecef !important;
+  height: var(--uniform-card-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 400;
+  white-space: nowrap;
 }
 
 /* Uniform card heights */
@@ -603,4 +617,76 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 #reimbursed-trips-container .card,
 #expense-list-container .card {
   margin-bottom: 0 !important;
+}
+
+/* Scanner View Styles */
+.hidden {
+    display: none !important;
+}
+
+#scanner-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+}
+
+#scanic-container {
+    flex: 1;
+    min-height: 0; /* Allows flex-shrink */
+}
+
+#thumbnail-bar {
+    flex-shrink: 0;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    height: 100px; /* Fixed height for the thumbnail area */
+}
+
+.thumbnail {
+    position: relative;
+    width: 70px;
+    height: 70px;
+    border: 2px solid #fff;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.delete-thumb-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    background-color: #dc3545;
+    color: white;
+    border: 1px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer !important; /* Ensure cursor is a pointer */
+}
+
+.scanner-controls {
+    flex-shrink: 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    text-align: center;
 }

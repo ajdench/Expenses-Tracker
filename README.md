@@ -13,14 +13,15 @@
 
 ## ✨ Key Features
 
-- **🎯 Intuitive Gestures**: Swipe cards to change trip status with visual feedback
+- **🎯 Intuitive Gestures**: Swipe cards to change trip status with visual feedback (2px colored borders)
 - **📱 Mobile-First Design**: Optimized for iOS/Android with safe area support  
 - **📸 Smart Receipt Management**: Camera capture, gallery preview, PDF support, edge detection
-- **🔄 Drag & Drop**: Reorder trips and expenses with SortableJS integration
-- **🎨 Visual Polish**: Consistent colors, smooth animations, proper selection states
+- **🔄 Drag & Drop**: Reorder trips and expenses with SortableJS integration, ghost element positioning
+- **🎨 Visual Polish**: Consistent colors, smooth animations, proper selection states, placeholder cards
 - **📲 iOS Shortcuts**: Native document scanning integration
 - **💾 Offline Ready**: IndexedDB storage, optional service worker caching
 - **🔧 Developer Friendly**: No build step, vanilla JavaScript, comprehensive testing
+- **🛠️ Archive Management**: Ghost snapping, always-available drop zones, comprehensive swipe prevention
 
 ## For Users
 
@@ -69,6 +70,13 @@ python3 -m http.server 3000
 ```
 
 Open in your browser at the displayed localhost URL.
+
+### Naming Conventions
+
+To ensure consistency and clarity across the codebase, this project follows these naming conventions:
+
+*   **JavaScript (`.js`):** Use `camelCase` for all variables and function names (e.g., `myVariable`, `calculateTotal`).
+*   **CSS (`.css`) & HTML (`id`, `class`):** Use `kebab-case` for all CSS classes, IDs, and custom attributes (e.g., `.main-container`, `id="user-profile"`).
 
 Notes
 - Service Worker is disabled during development and Pages deploys (see `register-sw.js`).
@@ -225,3 +233,45 @@ Templates (Settings → iOS Shortcuts)
 - Filename template: defaults to `{vendor}-{date}-{time}-{currency}-{amount}.pdf`
 - Subfolder template (optional): e.g., `Trip-{trip}` to group by trip
 - Supported variables: `{vendor}`, `{date}` (YYYYMMDD), `{time}` (HHmm), `{currency}`, `{amount}`, `{trip}`
+
+
+## Recent Major Update (September 2025) 🎉
+
+**COMPLETE RECOVERY & ENHANCEMENT**: All functionality has been fully restored and enhanced beyond the original GitHub baseline after comprehensive recovery from corruption.
+
+### ✅ **What's New & Fixed**
+- **4 Core UX Issues Resolved**: Placeholder cards, ghost snapping, drop zones, ghost swipe prevention
+- **Border System Perfected**: 2px width borders with proper color reset, consistent across all card types
+- **Archive Functionality Enhanced**: Ghost elements snap to placeholders, always-available drop zones  
+- **Drag & Drop Polished**: Placeholder cards replace empty text, proper positioning in all sections
+- **Quality Assurance**: Verified behavior consistency across Trip/Expense cards in main/archive views
+- **Recovery Documentation**: Complete analysis available in recovery documentation files
+
+### 🔧 **Technical Improvements**
+- Enhanced debug infrastructure with color-coded logging
+- Global constants system for consistent UX
+- Comprehensive ghost class detection in all swipe handlers  
+- Always-create drop zone strategy prevents disappearing zones
+- Performance optimizations with calibrated swipe distances
+
+**Status**: FULLY RECOVERED & ENHANCED - All functionality working beyond baseline
+
+---
+
+## To-Do
+
+- [x] ~~**CRITICAL:** Fix the main application rendering failure~~ ✅ **RESOLVED** (September 2025)
+- [x] Implement Archive Logic (soft delete) for trips and expenses.
+- [ ] Implement Export/Import backup functionality.
+- [x] ~~Refine the drag-and-drop animation to be smoother~~ ✅ **ENHANCED** (Ghost snapping implemented)
+- [ ] Test the iOS "Scan Documents" feature using Shortcuts, as outlined in `resources/scan-to-pwa-shortcuts.md`.
+- [ ] Test the image editor feature, including cropping, edge detection and warping.
+- [x] ~~Test trip swipe gestures for changing trip status~~ ✅ **FULLY WORKING** (Border colors, proper reset)
+- [x] Fix the home button icon color in the trip detail view.
+- [x] Implement Expense Editing.
+- [x] Remove unnecessary padding from text within cards.
+- [x] ~~Implement dynamic "No trips" messages~~ ✅ **ENHANCED** (Placeholder cards implemented)
+- [x] Implement dynamic service worker paths for local and GitHub Pages environments.
+- [x] Resolve `favicon.png` 404 on GitHub Pages.
+- [x] Resolve `ReferenceError: Can't find variable: window` in service worker.
+- [x] Fix Bootstrap modal not hiding on GitHub Pages (re-implemented with a new modal).

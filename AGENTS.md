@@ -141,11 +141,24 @@
 > - **Debug Controls**: Hidden behind global toggle (`UI_CONSTANTS.SHOW_DEBUG_BUTTON`)
 > **STATUS**: All original UX issues fully resolved, app ready for production use
 
+### Major Recovery & Enhancement (Session 2025-09-02)
+> **COMPLETE RECOVERY FROM CORRUPTION**: All functionality restored and enhanced beyond baseline
+> - **4 Core User Issues**: Placeholder cards, ghost snapping, drop zones, ghost swipe prevention - ALL IMPLEMENTED
+> - **Border System Perfected**: 2px width (not 3px), proper color reset on incomplete swipes, consistent across all card types/locations
+> - **Archive Ghost Functionality**: Ghost elements snap to placeholders, always-available drop zones, comprehensive swipe prevention  
+> - **Drag & Drop Enhancement**: Placeholder cards replace empty text, ghost positioning works in all archive sections
+> - **Quality Assurance**: Verified behavior consistency across Trip/Expense cards in main/archive views
+> - **Recovery Documentation**: Complete analysis in `2-sept-25-cont.md`, `recovery-analysis.md`
+> **STATUS**: FULLY RECOVERED & ENHANCED - All functionality working beyond GitHub baseline
+
 ### Technical Implementation Notes
 > **Architecture**: Global constants system (`COLORS`, `UI_CONSTANTS`) for consistent UX
-> **Border Fixes**: Used `setProperty('border-color', color, 'important')` to override CSS !important rules
-> **Cursor Control**: Universal `cursor: default !important` prevents inconsistent browser cursors
-> **Debug System**: Toggleable via `UI_CONSTANTS.SHOW_DEBUG_BUTTON` for development
+> **Border System**: 2px borders with `setProperty('border-color', color, 'important')` + proper reset in onTouchEnd/finally blocks
+> **Ghost Prevention**: Comprehensive ghost class detection in all swipe handlers (`ghost-card`, `sortable-ghost`)
+> **Placeholder Cards**: `.placeholder-card` CSS class with dashed borders, replaces all empty state text
+> **Drop Zone Logic**: Always-create strategy (`if (true)` vs `if (archived.length > 0)`) prevents disappearing zones
+> **Debug System**: Enhanced with color-coded logging (🔵, 🔴, 🔄) and layer-by-layer state tracking
+> **Memory System**: Complete recovery documentation in `CLAUDE.md` and memory files
 > **See**: `CLAUDE.md` for memory system and complete project documentation
 
 ## Development: Shortcuts Integration (Summary)

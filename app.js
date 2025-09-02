@@ -124,3 +124,36 @@ function showScanFilesPrompt(expenseId, filename) {
   }, { once: true });
   modal.show();
 }
+
+// --- Scanic Integration ---
+
+let currentExpenseIdForScan = null;
+
+window.startReceiptScan = async function(expenseId) {
+    currentExpenseIdForScan = expenseId;
+    showScannerView();
+    const receipts = await getReceiptsByExpenseId(expenseId);
+    receipts.forEach(receipt => {
+        addReceiptThumbnail(receipt.id, receipt.blob);
+    });
+    initScanner(document.getElementById('scanic-container'), handleScanResult);
+    
+}
+
+async function handleScanResult(imageBlob) {
+    const imageFile = new File([imageBlob], `receipt-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    const receiptId = await saveReceiptForExpense(currentExpenseIdForScan, imageFile);
+    addReceiptThumbnail(receiptId, imageBlob);
+}
+
+window.deleteReceipt = async function(receiptId) {
+    await deleteReceiptById(receiptId);
+    removeReceiptThumbnail(receiptId);
+}
+
+window.finishScanning = function() {
+    currentExpenseIdForScan = null;
+    hideScannerView();
+    
+    renderTrips(); // Refresh the main UI
+}
