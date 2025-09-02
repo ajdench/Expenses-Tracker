@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>WFWorkflowActions</key>
+	<array>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>SCAN TO MYAPP – SKELETON
+
+Replace these comment blocks with real actions using the list below.
+This Shortcut is meant to be triggered by your PWA via:
+shortcuts://x-callback-url/run-shortcut?name=Scan%20to%20MyApp&amp;input=text&amp;text={JSON}&amp;x-success={URL}
+</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>SECTION A – INPUT PARSING
+1) Get Text from Input
+2) Get Dictionary from Input
+3) Get Dictionary Value (vendor) → variable Vendor
+4) Get Dictionary Value (date) → variable Date
+5) Get Dictionary Value (time) → variable Time
+6) Get Dictionary Value (currency) → variable Currency
+7) Get Dictionary Value (value) → variable Value
+</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>SECTION B – FILENAME
+8) Text → compose: Vendor-Date-Time-Currency-Value.pdf → variable Filename
+   (PWA should already normalise: vendor slug, YYYYMMDD, HHmm, ISO currency, 2dp value)</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>SECTION C – SCAN &amp; SAVE
+9) Scan Documents (outputs PDF)
+10) Set Name → Name: Filename
+11) Create Folder (if missing): On My iPhone/MyApp/Scans
+12) Save File → On My iPhone › MyApp › Scans (Ask Where: Off)
+Upon completion Shortcuts returns to x-success URL automatically.</string>
+			</dict>
+		</dict>
+	</array>
+	<key>WFWorkflowClientVersion</key>
+	<integer>1000</integer>
+	<key>WFWorkflowIcon</key>
+	<dict>
+		<key>WFWorkflowIconGlyphNumber</key>
+		<integer>59603</integer>
+		<key>WFWorkflowIconStartColor</key>
+		<integer>1809143</integer>
+	</dict>
+	<key>WFWorkflowInputContentItemClasses</key>
+	<array>
+		<string>WFStringContentItem</string>
+		<string>WFURLContentItem</string>
+		<string>WFPDFContentItem</string>
+		<string>WFGenericFileContentItem</string>
+	</array>
+	<key>WFWorkflowMinimumClientVersion</key>
+	<integer>411</integer>
+	<key>WFWorkflowName</key>
+	<string>Scan to MyApp (skeleton)</string>
+	<key>WFWorkflowTypes</key>
+	<array>
+		<string>ActionExtension</string>
+	</array>
+</dict>
+</plist>

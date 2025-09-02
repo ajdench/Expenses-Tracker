@@ -1,0 +1,25 @@
+{
+  "name": "expense-tracker-pwa",
+  "version": "1.0.0",
+  "description": "A production-ready offline-first Progressive Web App (PWA) for tracking and managing expenses related to trips.",
+  "main": "app.js",
+  "scripts": {
+    "start": "npx serve",
+    "build:local": "# This script is no longer used. Dynamic pathing is handled in JS.",
+    "build:deploy": "# This script is no longer used. Dynamic pathing is handled in JS.",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "keywords": [
+    "pwa",
+    "expense-tracker",
+    "offline-first",
+    "indexeddb"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

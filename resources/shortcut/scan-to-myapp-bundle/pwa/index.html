@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyApp — Scan</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    label { display:block; margin: .5rem 0; }
+    input, button { font-size: 1rem; padding: .6rem .8rem; }
+    button { margin-top: 1rem; }
+    .row { display:flex; gap:.75rem; }
+    .row > label { flex:1; }
+  </style>
+</head>
+<body>
+  <h1>Scan a receipt</h1>
+  <p>Enter the details, then tap <strong>Scan</strong> to open the iOS scanner via Shortcuts.</p>
+
+  <form id="scanForm" onsubmit="return false;">
+    <label>Vendor <input id="vendor" required placeholder="Cotswold Company"></label>
+    <div class="row">
+      <label>Date <input id="date" type="date" required></label>
+      <label>Time <input id="time" type="time" required></label>
+    </div>
+    <div class="row">
+      <label>Currency <input id="currency" required placeholder="GBP"></label>
+      <label>Value <input id="value" required placeholder="129.99" inputmode="decimal"></label>
+    </div>
+    <button id="scanBtn" type="button">Scan</button>
+  </form>
+
+  <script>
+    function slugifyVendor(v) {
+      return String(v || '').trim().toLowerCase()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^a-z0-9\-]/g, '');
+    }
+    function normDate(d) {
+      const t = new Date(d);
+      if (!isNaN(+t)) {
+        const y = t.getFullYear();
+        const m = String(t.getMonth()+1).padStart(2,'0');
+        const day = String(t.getDate()).padStart(2,'0');
+        return `${y}${m}${day}`;
+      }
+      return String(d).replaceAll('-', '');
+    }
+    function normTime(t) {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(String(t));
+      if (!m) return String(t).replace(/:/g,'');
+      const hh = String(m[1]).padStart(2,'0');
+      const mm = m[2];
+      return `${hh}${mm}`;
+    }
+    function normCurrency(c) {
+      return String(c || '').trim().toUpperCase();
+    }
+    function normValue(v) {
+      const n = Number(String(v).replace(/,/g,''));
+      if (Number.isFinite(n)) return n.toFixed(2);
+      const safe = String(v).replace(/[^0-9.]/g,'');
+      return (Number(safe) || 0).toFixed(2);
+    }
+    document.getElementById('scanBtn').addEventListener('click', () => {
+      const vendor   = slugifyVendor(document.querySelector('#vendor').value);
+      const date     = normDate(document.querySelector('#date').value);
+      const time     = normTime(document.querySelector('#time').value);
+      const currency = normCurrency(document.querySelector('#currency').value);
+      const value    = normValue(document.querySelector('#value').value);
+
+      const payload = { vendor, date, time, currency, value };
+      const xSuccessUrl = new URL(location.href);
+      xSuccessUrl.pathname = (xSuccessUrl.pathname.replace(/index\.html$/, '')) + 'import.html';
+      xSuccessUrl.search = '?ok=1';
+
+      const url = 'shortcuts://x-callback-url/run-shortcut' +
+        '?name=' + encodeURIComponent('Scan to MyApp') +
+        '&input=text&text=' + encodeURIComponent(JSON.stringify(payload)) +
+        '&x-success=' + encodeURIComponent(xSuccessUrl.toString()) +
+        '&x-error=' + encodeURIComponent(xSuccessUrl.toString().replace('ok=1','err=1'));
+
+      location.href = url;
+    });
+  </script>
+</body>
+</html>

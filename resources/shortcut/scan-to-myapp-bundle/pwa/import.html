@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyApp — Import</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    button, input { font-size: 1rem; padding: .6rem .8rem; }
+    #list { margin-top: 1rem; }
+    .item { padding:.5rem 0; border-bottom:1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1>Import Scan</h1>
+  <p id="status"></p>
+  <button id="pickBtn">Select Scan</button>
+  <input id="fileInput" type="file" accept="application/pdf" hidden>
+
+  <div id="list"></div>
+
+  <script>
+    const status = document.getElementById('status');
+    const params = new URLSearchParams(location.search);
+    if (params.has('ok')) status.textContent = 'Scan complete. Select the new PDF from On My iPhone › MyApp › Scans.';
+    if (params.has('err')) status.textContent = 'Scan failed or cancelled. You can still pick a file manually.';
+
+    document.getElementById('pickBtn').addEventListener('click', () => {
+      document.getElementById('fileInput').click();
+    });
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('myapp-db', 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('scans')) {
+            db.createObjectStore('scans', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function putScan(record) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('scans', 'readwrite');
+        tx.objectStore('scans').put(record);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function listScans() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('scans', 'readonly');
+        const store = tx.objectStore('scans');
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const id = file.name;
+      const arrayBuf = await file.arrayBuffer();
+      await putScan({ id, name: file.name, mime: file.type, data: arrayBuf, ts: Date.now() });
+      status.textContent = `Imported: ${file.name}`;
+      renderList();
+    });
+
+    async function renderList() {
+      const listEl = document.getElementById('list');
+      const items = await listScans();
+      if (!items.length) { listEl.textContent = ''; return; }
+      listEl.innerHTML = '<h2>Stored scans</h2>' + items.map(x => (
+        `<div class="item"><strong>${x.name}</strong><br><small>${new Date(x.ts).toLocaleString()}</small></div>`
+      )).join('');
+    }
+    renderList();
+  </script>
+</body>
+</html>
